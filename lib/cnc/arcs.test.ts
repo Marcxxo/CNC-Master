@@ -2,7 +2,8 @@
 import { interpolateArcXY } from "@/lib/cnc/arcs";
 import { parseGCode } from "@/lib/cnc/parser";
 import { getSimulationFrame } from "@/lib/cnc/simulation";
-import { BUILTIN_EXAMPLES, SAMPLE_GCODE } from "@/lib/data/examples";
+import { BUILTIN_EXAMPLES } from "@/lib/data/examples";
+import { buildScenePathPoints } from "@/components/viewer/toolpath-helpers";
 
 describe("interpolateArcXY", () => {
   it("builds a clockwise quarter arc in the XY plane", () => {
@@ -66,10 +67,24 @@ describe("parseGCode arc support", () => {
     expect(program.diagnostics.some((item) => item.code === "MISSING_ARC_CENTER")).toBe(true);
   });
 
-  it("keeps the demo arc example free of diagnostics", () => {
-    const program = parseGCode(SAMPLE_GCODE, BUILTIN_EXAMPLES[1].workpiece, BUILTIN_EXAMPLES[1].tool);
+  it("uses sampled arc points when building scene toolpaths", () => {
+    const program = parseGCode([
+      "G21",
+      "G17",
+      "G90",
+      "F600",
+      "S12000 M3",
+      "G0 X45 Y25 Z8",
+      "G1 Z-2",
+      "G2 X75 Y55 I15 J15",
+    ].join("\n"));
 
-    expect(program.diagnostics).toHaveLength(0);
+    const arcMove = program.moves.find((move) => move.type === "arc");
+    expect(arcMove).toBeDefined();
+
+    const scenePoints = buildScenePathPoints(arcMove!);
+    expect(scenePoints.length).toBe(arcMove!.pathPoints.length);
+    expect(scenePoints.length).toBeGreaterThan(8);
   });
 
   it("keeps all built-in examples free of diagnostics", () => {

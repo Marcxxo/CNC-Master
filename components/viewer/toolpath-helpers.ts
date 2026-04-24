@@ -1,12 +1,26 @@
-import * as THREE from "three";
-import type { SimulationMove } from "@/lib/cnc/types";
+﻿import * as THREE from "three";
+import type { SimulationMove, Vector3 } from "@/lib/cnc/types";
 
-export const toThreePosition = (x: number, y: number, z: number) =>
-  new THREE.Vector3(x, z, y);
+interface ScenePointOptions {
+  verticalOffset?: number;
+}
 
-export const buildPathPoints = (moves: SimulationMove[], filter?: (move: SimulationMove) => boolean) =>
-  moves
-    .filter((move) => (filter ? filter(move) : true))
-    .flatMap((move) =>
-      move.pathPoints.map((point) => toThreePosition(point.x, point.y, point.z)),
-    );
+export const toSceneVector = (
+  point: Vector3,
+  options: ScenePointOptions = {},
+) => {
+  const { verticalOffset = 0 } = options;
+  return new THREE.Vector3(point.x, point.z + verticalOffset, point.y);
+};
+
+export const toScenePosition = (
+  x: number,
+  y: number,
+  z: number,
+  options: ScenePointOptions = {},
+) => toSceneVector({ x, y, z }, options);
+
+export const buildScenePathPoints = (
+  move: SimulationMove,
+  options: ScenePointOptions = {},
+) => move.pathPoints.map((point) => toSceneVector(point, options));

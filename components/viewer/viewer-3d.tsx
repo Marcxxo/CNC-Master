@@ -6,7 +6,7 @@ import { Environment, Line, OrbitControls, RoundedBox } from "@react-three/drei"
 import * as THREE from "three";
 import { PanelShell } from "@/components/panel-shell";
 import { useSimulationStore } from "@/lib/state/simulation-store";
-import { buildPathPoints, toThreePosition } from "@/components/viewer/toolpath-helpers";
+import { buildScenePathPoints, toScenePosition } from "@/components/viewer/toolpath-helpers";
 
 type OrbitControlsApi = {
   object: THREE.Camera;
@@ -24,11 +24,11 @@ function AnimatedTool() {
       return;
     }
     const { x, y, z } = frame.position;
-    meshRef.current.position.copy(toThreePosition(x, y, z + tool.totalLength / 2));
+    meshRef.current.position.copy(toScenePosition(x, y, z + tool.totalLength / 2));
   });
 
   return (
-    <mesh ref={meshRef} castShadow>
+    <mesh ref={meshRef} castShadow renderOrder={30}>
       <cylinderGeometry args={[tool.diameter / 2, tool.diameter / 2, tool.totalLength, 32]} />
       <meshStandardMaterial color="#93c5fd" metalness={0.45} roughness={0.25} />
     </mesh>
@@ -42,65 +42,96 @@ const ToolpathLines = memo(function ToolpathLines({
 }) {
   const moves = useSimulationStore((state) => state.parsedProgram.moves);
 
-  const rapidPoints = useMemo(
-    () => buildPathPoints(moves, (move) => move.type === "rapid"),
-    [moves],
-  );
-  const cutPoints = useMemo(
-    () => buildPathPoints(moves, (move) => move.type !== "rapid"),
-    [moves],
-  );
+  if (!visible) {
+    return null;
+  }
 
   return (
     <>
-      {visible && rapidPoints.length > 1 ? (
-        <Line
-          points={rapidPoints}
-          color="#89b4ff"
-          lineWidth={1.15}
-          dashed
-          dashScale={1.2}
-          dashSize={0.8}
-          gapSize={0.6}
-          transparent
-          opacity={0.68}
-        />
-      ) : null}
-      {visible && cutPoints.length > 1 ? (
-        <Line points={cutPoints} color="#49d6ff" lineWidth={1.85} transparent opacity={0.9} />
-      ) : null}
+      {moves.map((move) => {
+        const points = buildScenePathPoints(move, { verticalOffset: 0.06 });
+
+        if (points.length < 2) {
+          return null;
+        }
+
+        if (move.type === "rapid") {
+          return (
+            <Line
+              key={`rapid-${move.id}`}
+              points={points}
+              color="#89b4ff"
+              lineWidth={1.15}
+              dashed
+              dashScale={1.2}
+              dashSize={0.8}
+              gapSize={0.6}
+              transparent
+              opacity={0.72}
+              depthTest={false}
+              depthWrite={false}
+              renderOrder={20}
+            />
+          );
+        }
+
+        return (
+          <Line
+            key={`cut-${move.id}`}
+            points={points}
+            color="#49d6ff"
+            lineWidth={1.85}
+            transparent
+            opacity={0.92}
+            depthTest={false}
+            depthWrite={false}
+            renderOrder={21}
+          />
+        );
+      })}
     </>
   );
 });
 
-function CutPreview({
+const CutPreview = memo(function CutPreview({
   visible,
 }: {
   visible: boolean;
 }) {
   const moves = useSimulationStore((state) => state.parsedProgram.moves);
-  const cutPreviewPoints = useMemo(
-    () =>
-      moves
-        .filter((move) => move.type !== "rapid" && move.to.z < 0)
-        .flatMap((move) => move.pathPoints),
-    [moves],
-  );
 
-  if (!visible || cutPreviewPoints.length < 2) {
+  if (!visible) {
     return null;
   }
 
   return (
-    <Line
-      points={cutPreviewPoints.map((point) => toThreePosition(point.x, point.y, point.z))}
-      color="#22d3ee"
-      lineWidth={8}
-      transparent
-      opacity={0.1}
-    />
+    <>
+      {moves
+        .filter((move) => move.type !== "rapid" && move.to.z < 0)
+        .map((move) => {
+          const points = buildScenePathPoints(move, { verticalOffset: 0.03 });
+
+          if (points.length < 2) {
+            return null;
+          }
+
+          return (
+            <Line
+              key={`preview-${move.id}`}
+              points={points}
+              color="#22d3ee"
+              lineWidth={7.5}
+              transparent
+              opacity={0.14}
+              depthTest={false}
+              depthWrite={false}
+              renderOrder={10}
+            />
+          );
+        })}
+    </>
   );
-}
+});
 
 function WorkpieceScene({
   showToolpath,
@@ -166,7 +197,7 @@ function WorkpieceScene({
         <meshStandardMaterial
           color="#355b79"
           transparent
-          opacity={0.58}
+          opacity={0.5}
           metalness={0.18}
           roughness={0.68}
         />
@@ -174,9 +205,9 @@ function WorkpieceScene({
       <CutPreview visible={showCutPreview} />
       <ToolpathLines visible={showToolpath} />
       <AnimatedTool />
-      <mesh position={toThreePosition(frame.position.x, frame.position.y, 0)}>
+      <mesh position={toScenePosition(frame.position.x, frame.position.y, 0)} renderOrder={25}>
         <sphereGeometry args={[0.8, 16, 16]} />
-        <meshBasicMaterial color="#49d6ff" />
+        <meshBasicMaterial color="#49d6ff" depthTest={false} />
       </mesh>
       <Environment preset="city" />
       <OrbitControls
