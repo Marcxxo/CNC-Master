@@ -4,6 +4,7 @@ export type MotionType = "rapid" | "cut" | "arc";
 export type DiagnosticSeverity = "error" | "warning" | "info";
 export type UnitMode = "mm" | "inch";
 export type PositionMode = "absolute" | "incremental";
+export type PlaneMode = "XY" | "XZ" | "YZ";
 
 export interface Vector3 {
   x: number;
@@ -53,6 +54,14 @@ export interface MachineState {
   toolNumber?: number;
   unitMode: UnitMode;
   positionMode: PositionMode;
+  planeMode: PlaneMode;
+}
+
+export interface ArcDefinition {
+  center: Vector3;
+  clockwise: boolean;
+  plane: "XY";
+  radius: number;
 }
 
 export interface SimulationMove {
@@ -65,6 +74,8 @@ export interface SimulationMove {
   spindleOn: boolean;
   isCutting: boolean;
   warnings: string[];
+  pathPoints: Vector3[];
+  arc?: ArcDefinition;
 }
 
 export interface Diagnostic {

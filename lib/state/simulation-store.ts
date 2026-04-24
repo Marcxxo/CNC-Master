@@ -35,50 +35,94 @@ interface SimulationStore {
   loadExample: () => void;
 }
 
-const initialProgram = parseGCode(SAMPLE_GCODE, DEFAULT_WORKPIECE, DEFAULT_TOOL);
+const buildDerivedSimulation = ({
+  gcode,
+  workpiece,
+  tool,
+  elapsedSeconds,
+  playbackSpeed,
+}: {
+  gcode: string;
+  workpiece: WorkpieceDefinition;
+  tool: ToolDefinition;
+  elapsedSeconds: number;
+  playbackSpeed: number;
+}) => {
+  const parsedProgram = parseGCode(gcode, workpiece, tool);
+  return {
+    parsedProgram,
+    runtimeSeconds: getTotalRuntime(parsedProgram, playbackSpeed),
+    frame: getSimulationFrame(parsedProgram, elapsedSeconds, playbackSpeed),
+  };
+};
+
+const initialDerived = buildDerivedSimulation({
+  gcode: SAMPLE_GCODE,
+  workpiece: DEFAULT_WORKPIECE,
+  tool: DEFAULT_TOOL,
+  elapsedSeconds: 0,
+  playbackSpeed: 1,
+});
 
 export const useSimulationStore = create<SimulationStore>((set, get) => ({
   workpiece: DEFAULT_WORKPIECE,
   tool: DEFAULT_TOOL,
   gcode: SAMPLE_GCODE,
-  parsedProgram: initialProgram,
+  parsedProgram: initialDerived.parsedProgram,
   selectedLineNumber: null,
   isPlaying: false,
   playbackSpeed: 1,
   elapsedSeconds: 0,
-  runtimeSeconds: getTotalRuntime(initialProgram, 1),
-  frame: getSimulationFrame(initialProgram, 0, 1),
+  runtimeSeconds: initialDerived.runtimeSeconds,
+  frame: initialDerived.frame,
   setWorkpiece: (workpiece) => {
-    const { gcode, tool } = get();
-    const parsedProgram = parseGCode(gcode, workpiece, tool);
+    const { gcode, tool, elapsedSeconds, playbackSpeed } = get();
+    const derived = buildDerivedSimulation({
+      gcode,
+      workpiece,
+      tool,
+      elapsedSeconds,
+      playbackSpeed,
+    });
     set({
       workpiece,
-      parsedProgram,
-      runtimeSeconds: getTotalRuntime(parsedProgram, get().playbackSpeed),
-      frame: getSimulationFrame(parsedProgram, get().elapsedSeconds, get().playbackSpeed),
-      tool,
+      parsedProgram: derived.parsedProgram,
+      runtimeSeconds: derived.runtimeSeconds,
+      frame: derived.frame,
     });
   },
   setTool: (tool) => {
-    const { gcode, workpiece } = get();
-    const parsedProgram = parseGCode(gcode, workpiece, tool);
+    const { gcode, workpiece, elapsedSeconds, playbackSpeed } = get();
+    const derived = buildDerivedSimulation({
+      gcode,
+      workpiece,
+      tool,
+      elapsedSeconds,
+      playbackSpeed,
+    });
     set({
       tool,
-      parsedProgram,
-      runtimeSeconds: getTotalRuntime(parsedProgram, get().playbackSpeed),
-      frame: getSimulationFrame(parsedProgram, get().elapsedSeconds, get().playbackSpeed),
+      parsedProgram: derived.parsedProgram,
+      runtimeSeconds: derived.runtimeSeconds,
+      frame: derived.frame,
     });
   },
   setGCode: (gcode) => {
     const { workpiece, tool } = get();
-    const parsedProgram = parseGCode(gcode, workpiece, tool);
     const playbackSpeed = get().playbackSpeed;
+    const derived = buildDerivedSimulation({
+      gcode,
+      workpiece,
+      tool,
+      elapsedSeconds: 0,
+      playbackSpeed,
+    });
     set({
       gcode,
-      parsedProgram,
+      parsedProgram: derived.parsedProgram,
       elapsedSeconds: 0,
-      runtimeSeconds: getTotalRuntime(parsedProgram, playbackSpeed),
-      frame: getSimulationFrame(parsedProgram, 0, playbackSpeed),
+      runtimeSeconds: derived.runtimeSeconds,
+      frame: derived.frame,
       isPlaying: false,
       selectedLineNumber: null,
     });
@@ -119,14 +163,20 @@ export const useSimulationStore = create<SimulationStore>((set, get) => ({
   },
   loadExample: () => {
     const { workpiece, tool } = get();
-    const parsedProgram = parseGCode(SAMPLE_GCODE, workpiece, tool);
+    const derived = buildDerivedSimulation({
+      gcode: SAMPLE_GCODE,
+      workpiece,
+      tool,
+      elapsedSeconds: 0,
+      playbackSpeed: 1,
+    });
     set({
       gcode: SAMPLE_GCODE,
-      parsedProgram,
+      parsedProgram: derived.parsedProgram,
       elapsedSeconds: 0,
-      runtimeSeconds: getTotalRuntime(parsedProgram, 1),
+      runtimeSeconds: derived.runtimeSeconds,
       playbackSpeed: 1,
-      frame: getSimulationFrame(parsedProgram, 0, 1),
+      frame: derived.frame,
       isPlaying: false,
       selectedLineNumber: null,
     });

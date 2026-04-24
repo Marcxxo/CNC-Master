@@ -1,10 +1,12 @@
 import { DEFAULT_TOOL } from "@/lib/cnc/defaults";
+import { interpolateArcXY } from "@/lib/cnc/arcs";
 import type {
   Diagnostic,
   GCodeWord,
   MachineState,
   ParsedLine,
   ParsedProgram,
+  PlaneMode,
   PositionMode,
   SimulationMove,
   Vector3,
@@ -22,6 +24,9 @@ const SUPPORTED_CODES = new Set([
   "G02",
   "G3",
   "G03",
+  "G17",
+  "G18",
+  "G19",
   "G20",
   "G21",
   "G90",
@@ -40,6 +45,7 @@ const emptyState = (): MachineState => ({
   toolNumber: undefined,
   unitMode: "mm",
   positionMode: "absolute",
+  planeMode: "XY",
 });
 
 const cleanLine = (line: string) => {
@@ -79,6 +85,19 @@ const getAxisValue = (
   return mode === "absolute" ? nextValue : current + nextValue;
 };
 
+const getPlaneMode = (code: string): PlaneMode | null => {
+  if (code === "G17") {
+    return "XY";
+  }
+  if (code === "G18") {
+    return "XZ";
+  }
+  if (code === "G19") {
+    return "YZ";
+  }
+  return null;
+};
+
 const buildParsedLines = (source: string): ParsedLine[] =>
   source.split(/\r?\n/).map((line, index) => {
     const { sanitized, comment } = cleanLine(line);
@@ -110,13 +129,11 @@ export const parseGCode = (
       continue;
     }
 
-    const seenTokens = new Set<string>();
     const axisValues: Partial<Vector3> = {};
+    let centerOffsetI: number | undefined;
+    let centerOffsetJ: number | undefined;
 
     for (const word of line.words) {
-      const token = `${word.letter}${word.value}`;
-      seenTokens.add(token);
-
       if (word.letter === "G" || word.letter === "M") {
         const normalized = `${word.letter}${Number(word.value)}`;
         if (!SUPPORTED_CODES.has(normalized)) {
@@ -145,6 +162,12 @@ export const parseGCode = (
         if (normalized === "G21") {
           state.unitMode = "mm";
         }
+
+        const nextPlane = getPlaneMode(normalized);
+        if (nextPlane) {
+          state.planeMode = nextPlane;
+        }
+
         if (normalized === "M3" || normalized === "M03") {
           state.spindleOn = true;
         }
@@ -174,9 +197,17 @@ export const parseGCode = (
       if (word.letter === "Z" && typeof word.value === "number") {
         axisValues.z = word.value;
       }
+      if (word.letter === "I" && typeof word.value === "number") {
+        centerOffsetI = word.value;
+      }
+      if (word.letter === "J" && typeof word.value === "number") {
+        centerOffsetJ = word.value;
+      }
     }
 
-    const hasMotion = !!activeMotion && (axisValues.x !== undefined || axisValues.y !== undefined || axisValues.z !== undefined);
+    const hasMotion =
+      !!activeMotion &&
+      (axisValues.x !== undefined || axisValues.y !== undefined || axisValues.z !== undefined);
     if (!hasMotion) {
       continue;
     }
@@ -194,6 +225,23 @@ export const parseGCode = (
           ? "arc"
           : "rapid";
 
+    const canInterpolateArc =
+      moveType === "arc" &&
+      state.planeMode === "XY" &&
+      centerOffsetI !== undefined &&
+      centerOffsetJ !== undefined &&
+      !line.words.some((word) => word.letter === "R");
+
+    const pathPoints = canInterpolateArc
+      ? interpolateArcXY({
+          from: { ...state.position },
+          to: nextPosition,
+          centerOffsetI,
+          centerOffsetJ,
+          clockwise: activeMotion === "G2" || activeMotion === "G02",
+        })
+      : [{ ...state.position }, nextPosition];
+
     moves.push({
       id: `move-${line.lineNumber}-${moves.length}`,
       lineNumber: line.lineNumber,
@@ -204,6 +252,19 @@ export const parseGCode = (
       spindleOn: state.spindleOn,
       isCutting: moveType !== "rapid",
       warnings: [],
+      pathPoints,
+      arc: canInterpolateArc
+        ? {
+            center: {
+              x: state.position.x + centerOffsetI,
+              y: state.position.y + centerOffsetJ,
+              z: state.position.z,
+            },
+            clockwise: activeMotion === "G2" || activeMotion === "G02",
+            plane: "XY",
+            radius: Math.hypot(centerOffsetI, centerOffsetJ),
+          }
+        : undefined,
     });
 
     state.position = nextPosition;

@@ -1,4 +1,4 @@
-import { DEFAULT_WORKPIECE } from "@/lib/cnc/defaults";
+import { DEFAULT_TOOL, DEFAULT_WORKPIECE } from "@/lib/cnc/defaults";
 import type {
   Diagnostic,
   MachineState,
@@ -7,6 +7,7 @@ import type {
   ToolDefinition,
   WorkpieceDefinition,
 } from "@/lib/cnc/types";
+import { isFiniteNumber } from "@/lib/cnc/utils";
 
 const makeDiagnostic = (
   lineNumber: number,
@@ -26,15 +27,7 @@ export const validateProgram = (
   moves: SimulationMove[],
   state: MachineState,
   workpiece: WorkpieceDefinition = DEFAULT_WORKPIECE,
-  tool: ToolDefinition = {
-    type: "flat-end-mill",
-    diameter: 10,
-    fluteLength: 18,
-    totalLength: 55,
-    toolNumber: 1,
-    spindleSpeed: 12000,
-    feedRate: 600,
-  },
+  tool: ToolDefinition = DEFAULT_TOOL,
 ): Diagnostic[] => {
   const diagnostics: Diagnostic[] = [];
 
@@ -54,6 +47,11 @@ export const validateProgram = (
     const hasFeed = line.words.some((word) => word.letter === "F");
     const hasSpindle = line.words.some((word) => word.raw === "M3" || word.raw === "M03");
     const hasArc = line.words.some((word) => ["G2", "G02", "G3", "G03"].includes(word.raw));
+    const hasPlaneXZ = line.words.some((word) => word.raw === "G18");
+    const hasPlaneYZ = line.words.some((word) => word.raw === "G19");
+    const hasRArc = line.words.some((word) => word.letter === "R");
+    const iWord = line.words.find((word) => word.letter === "I");
+    const jWord = line.words.find((word) => word.letter === "J");
     const coords = line.words.filter((word) => ["X", "Y", "Z"].includes(word.letter));
 
     if (hasG1 && !hasFeed && !moves.some((move) => move.lineNumber < line.lineNumber && move.feedRate)) {
@@ -67,13 +65,35 @@ export const validateProgram = (
       );
     }
 
-    if (hasArc) {
+    if (hasArc && (hasPlaneXZ || hasPlaneYZ)) {
       diagnostics.push(
         makeDiagnostic(
           line.lineNumber,
           "warning",
-          "ARC_SIMPLIFIED",
-          "G2/G3 wird im MVP noch nicht vollstaendig interpoliert. Die Bahn wird nur vereinfacht dargestellt.",
+          hasPlaneXZ ? "UNSUPPORTED_PLANE_G18" : "UNSUPPORTED_PLANE_G19",
+          "G2/G3 wird aktuell nur in der G17-XY-Ebene interpoliert. Diese Arc-Bewegung wird vereinfacht behandelt.",
+        ),
+      );
+    }
+
+    if (hasArc && hasRArc) {
+      diagnostics.push(
+        makeDiagnostic(
+          line.lineNumber,
+          "warning",
+          "UNSUPPORTED_R_ARC",
+          "R-basierte Boegen werden im MVP noch nicht unterstuetzt. Bitte I/J-Mittelpunktoffsets verwenden.",
+        ),
+      );
+    }
+
+    if (hasArc && !hasRArc && (!isFiniteNumber(iWord?.value) || !isFiniteNumber(jWord?.value))) {
+      diagnostics.push(
+        makeDiagnostic(
+          line.lineNumber,
+          "warning",
+          "MISSING_ARC_CENTER",
+          "Fuer G2/G3 in G17 werden I- und J-Mittelpunktoffsets benoetigt.",
         ),
       );
     }
@@ -165,7 +185,7 @@ export const validateProgram = (
       diagnostics.push(
         makeDiagnostic(
           move.lineNumber,
-          outsideX || outsideY ? "warning" : "error",
+          "warning",
           "BOUNDARY_COLLISION",
           "Werkzeugmittelpunkt plus Durchmesser verlaesst die Werkstueckgrenze.",
         ),
