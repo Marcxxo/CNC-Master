@@ -232,15 +232,16 @@ export const parseGCode = (
       centerOffsetJ !== undefined &&
       !line.words.some((word) => word.letter === "R");
 
-    const pathPoints = canInterpolateArc
-      ? interpolateArcXY({
-          from: { ...state.position },
-          to: nextPosition,
-          centerOffsetI,
-          centerOffsetJ,
-          clockwise: activeMotion === "G2" || activeMotion === "G02",
-        })
-      : [{ ...state.position }, nextPosition];
+    const pathPoints =
+      canInterpolateArc && centerOffsetI !== undefined && centerOffsetJ !== undefined
+        ? interpolateArcXY({
+            from: { ...state.position },
+            to: nextPosition,
+            centerOffsetI,
+            centerOffsetJ,
+            clockwise: activeMotion === "G2" || activeMotion === "G02",
+          })
+        : [{ ...state.position }, nextPosition];
 
     moves.push({
       id: `move-${line.lineNumber}-${moves.length}`,
@@ -253,7 +254,7 @@ export const parseGCode = (
       isCutting: moveType !== "rapid",
       warnings: [],
       pathPoints,
-      arc: canInterpolateArc
+      arc: canInterpolateArc && centerOffsetI !== undefined && centerOffsetJ !== undefined
         ? {
             center: {
               x: state.position.x + centerOffsetI,

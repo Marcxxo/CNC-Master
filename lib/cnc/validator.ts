@@ -30,6 +30,7 @@ export const validateProgram = (
   tool: ToolDefinition = DEFAULT_TOOL,
 ): Diagnostic[] => {
   const diagnostics: Diagnostic[] = [];
+  let activePlane: "XY" | "XZ" | "YZ" = "XY";
 
   if (state.unitMode === "inch") {
     diagnostics.push(
@@ -54,6 +55,16 @@ export const validateProgram = (
     const jWord = line.words.find((word) => word.letter === "J");
     const coords = line.words.filter((word) => ["X", "Y", "Z"].includes(word.letter));
 
+    if (line.words.some((word) => word.raw === "G17")) {
+      activePlane = "XY";
+    }
+    if (hasPlaneXZ) {
+      activePlane = "XZ";
+    }
+    if (hasPlaneYZ) {
+      activePlane = "YZ";
+    }
+
     if (hasG1 && !hasFeed && !moves.some((move) => move.lineNumber < line.lineNumber && move.feedRate)) {
       diagnostics.push(
         makeDiagnostic(
@@ -65,12 +76,12 @@ export const validateProgram = (
       );
     }
 
-    if (hasArc && (hasPlaneXZ || hasPlaneYZ)) {
+    if (hasArc && activePlane !== "XY") {
       diagnostics.push(
         makeDiagnostic(
           line.lineNumber,
           "warning",
-          hasPlaneXZ ? "UNSUPPORTED_PLANE_G18" : "UNSUPPORTED_PLANE_G19",
+          activePlane === "XZ" ? "UNSUPPORTED_PLANE_G18" : "UNSUPPORTED_PLANE_G19",
           "G2/G3 wird aktuell nur in der G17-XY-Ebene interpoliert. Diese Arc-Bewegung wird vereinfacht behandelt.",
         ),
       );

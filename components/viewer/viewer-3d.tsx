@@ -70,33 +70,37 @@ function CutGrooves() {
       {/* Future extension point: swap these preview grooves for voxel removal,
           height-field stock simulation, or robust CSG when the physics layer matures. */}
       {moves
-        .filter((move) => move.type === "cut" && move.to.z < 0)
-        .map((move) => {
-          const length = Math.max(
-            Math.hypot(move.to.x - move.from.x, move.to.y - move.from.y),
-            tool.diameter,
-          );
-          const centerX = (move.from.x + move.to.x) / 2;
-          const centerY = (move.from.y + move.to.y) / 2;
-          const depth = Math.abs(move.to.z);
-          const angle = Math.atan2(move.to.y - move.from.y, move.to.x - move.from.x);
+        .filter((move) => move.type !== "rapid" && move.to.z < 0)
+        .flatMap((move) =>
+          move.pathPoints.slice(1).map((point, index) => {
+            const start = move.pathPoints[index];
+            const end = point;
+            const length = Math.max(
+              Math.hypot(end.x - start.x, end.y - start.y),
+              tool.diameter,
+            );
+            const centerX = (start.x + end.x) / 2;
+            const centerY = (start.y + end.y) / 2;
+            const depth = Math.max(Math.abs(start.z), Math.abs(end.z));
+            const angle = Math.atan2(end.y - start.y, end.x - start.x);
 
-          return (
-            <mesh
-              key={move.id}
-              position={[centerX, -depth / 2, centerY]}
-              rotation={[-Math.PI / 2, 0, angle]}
-            >
-              <boxGeometry args={[length, tool.diameter * 0.86, depth]} />
-              <meshStandardMaterial
-                color="#0ea5e9"
-                transparent
-                opacity={0.22}
-                roughness={0.45}
-              />
-            </mesh>
-          );
-        })}
+            return (
+              <mesh
+                key={`${move.id}-${index}`}
+                position={[centerX, -depth / 2, centerY]}
+                rotation={[-Math.PI / 2, 0, angle]}
+              >
+                <boxGeometry args={[length, tool.diameter * 0.86, depth]} />
+                <meshStandardMaterial
+                  color="#0ea5e9"
+                  transparent
+                  opacity={0.22}
+                  roughness={0.45}
+                />
+              </mesh>
+            );
+          }),
+        )}
     </>
   );
 }
