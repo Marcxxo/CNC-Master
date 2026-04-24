@@ -1,12 +1,18 @@
 ﻿"use client";
 
-import { memo, useEffect, useMemo, useRef } from "react";
+import { memo, useEffect, useMemo, useRef, useState } from "react";
 import { Canvas, useFrame } from "@react-three/fiber";
 import { Environment, Line, OrbitControls, RoundedBox } from "@react-three/drei";
 import * as THREE from "three";
 import { PanelShell } from "@/components/panel-shell";
 import { useSimulationStore } from "@/lib/state/simulation-store";
 import { buildPathPoints, toThreePosition } from "@/components/viewer/toolpath-helpers";
+
+type OrbitControlsApi = {
+  object: THREE.Camera;
+  target: THREE.Vector3;
+  update: () => void;
+};
 
 function AnimatedTool() {
   const tool = useSimulationStore((state) => state.tool);
@@ -29,7 +35,11 @@ function AnimatedTool() {
   );
 }
 
-const ToolpathLines = memo(function ToolpathLines() {
+const ToolpathLines = memo(function ToolpathLines({
+  visible,
+}: {
+  visible: boolean;
+}) {
   const moves = useSimulationStore((state) => state.parsedProgram.moves);
 
   const rapidPoints = useMemo(
@@ -43,69 +53,64 @@ const ToolpathLines = memo(function ToolpathLines() {
 
   return (
     <>
-      {rapidPoints.length > 1 ? (
+      {visible && rapidPoints.length > 1 ? (
         <Line
           points={rapidPoints}
           color="#89b4ff"
-          lineWidth={1.6}
+          lineWidth={1.15}
           dashed
           dashScale={1.2}
           dashSize={0.8}
           gapSize={0.6}
+          transparent
+          opacity={0.68}
         />
       ) : null}
-      {cutPoints.length > 1 ? (
-        <Line points={cutPoints} color="#49d6ff" lineWidth={2.5} />
+      {visible && cutPoints.length > 1 ? (
+        <Line points={cutPoints} color="#49d6ff" lineWidth={1.85} transparent opacity={0.9} />
       ) : null}
     </>
   );
 });
 
-function CutGrooves() {
+function CutPreview({
+  visible,
+}: {
+  visible: boolean;
+}) {
   const moves = useSimulationStore((state) => state.parsedProgram.moves);
-  const tool = useSimulationStore((state) => state.tool);
+  const cutPreviewPoints = useMemo(
+    () =>
+      moves
+        .filter((move) => move.type !== "rapid" && move.to.z < 0)
+        .flatMap((move) => move.pathPoints),
+    [moves],
+  );
+
+  if (!visible || cutPreviewPoints.length < 2) {
+    return null;
+  }
 
   return (
-    <>
-      {/* Future extension point: swap these preview grooves for voxel removal,
-          height-field stock simulation, or robust CSG when the physics layer matures. */}
-      {moves
-        .filter((move) => move.type !== "rapid" && move.to.z < 0)
-        .flatMap((move) =>
-          move.pathPoints.slice(1).map((point, index) => {
-            const start = move.pathPoints[index];
-            const end = point;
-            const length = Math.max(
-              Math.hypot(end.x - start.x, end.y - start.y),
-              tool.diameter,
-            );
-            const centerX = (start.x + end.x) / 2;
-            const centerY = (start.y + end.y) / 2;
-            const depth = Math.max(Math.abs(start.z), Math.abs(end.z));
-            const angle = Math.atan2(end.y - start.y, end.x - start.x);
-
-            return (
-              <mesh
-                key={`${move.id}-${index}`}
-                position={[centerX, -depth / 2, centerY]}
-                rotation={[-Math.PI / 2, 0, angle]}
-              >
-                <boxGeometry args={[length, tool.diameter * 0.86, depth]} />
-                <meshStandardMaterial
-                  color="#0ea5e9"
-                  transparent
-                  opacity={0.22}
-                  roughness={0.45}
-                />
-              </mesh>
-            );
-          }),
-        )}
-    </>
+    <Line
+      points={cutPreviewPoints.map((point) => toThreePosition(point.x, point.y, point.z))}
+      color="#22d3ee"
+      lineWidth={8}
+      transparent
+      opacity={0.1}
+    />
   );
 }
 
-function WorkpieceScene() {
+function WorkpieceScene({
+  showToolpath,
+  showCutPreview,
+  controlsRef,
+}: {
+  showToolpath: boolean;
+  showCutPreview: boolean;
+  controlsRef: { current: OrbitControlsApi | null };
+}) {
   const workpiece = useSimulationStore((state) => state.workpiece);
   const frame = useSimulationStore((state) => state.frame);
   const parsedProgram = useSimulationStore((state) => state.parsedProgram);
@@ -135,6 +140,15 @@ function WorkpieceScene() {
     }
   }, [parsedProgram.moves.length, playbackSpeed]);
 
+  useEffect(() => {
+    if (!controlsRef.current) {
+      return;
+    }
+
+    controlsRef.current.target.set(workpiece.width / 2, -workpiece.height / 2, workpiece.depth / 2);
+    controlsRef.current.update();
+  }, [controlsRef, workpiece.width, workpiece.height, workpiece.depth]);
+
   return (
     <>
       <ambientLight intensity={0.75} />
@@ -152,20 +166,29 @@ function WorkpieceScene() {
         <meshStandardMaterial
           color="#355b79"
           transparent
-          opacity={0.52}
+          opacity={0.58}
           metalness={0.18}
           roughness={0.68}
         />
       </RoundedBox>
-      <CutGrooves />
-      <ToolpathLines />
+      <CutPreview visible={showCutPreview} />
+      <ToolpathLines visible={showToolpath} />
       <AnimatedTool />
       <mesh position={toThreePosition(frame.position.x, frame.position.y, 0)}>
         <sphereGeometry args={[0.8, 16, 16]} />
         <meshBasicMaterial color="#49d6ff" />
       </mesh>
       <Environment preset="city" />
-      <OrbitControls makeDefault maxPolarAngle={Math.PI / 2.1} />
+      <OrbitControls
+        ref={controlsRef as never}
+        makeDefault
+        enablePan
+        enableDamping
+        dampingFactor={0.08}
+        minDistance={18}
+        maxDistance={320}
+        maxPolarAngle={Math.PI / 2.02}
+      />
     </>
   );
 }
@@ -207,6 +230,9 @@ export function Viewer3D() {
   const activeLine = useSimulationStore((state) => state.frame.activeLineNumber);
   const frame = useSimulationStore((state) => state.frame);
   const parsedProgram = useSimulationStore((state) => state.parsedProgram);
+  const [showToolpath, setShowToolpath] = useState(true);
+  const [showCutPreview, setShowCutPreview] = useState(true);
+  const controlsRef = useRef<OrbitControlsApi | null>(null);
 
   const activeMove = useMemo(
     () => parsedProgram.moves.find((move) => move.lineNumber === frame.activeLineNumber),
@@ -225,6 +251,24 @@ export function Viewer3D() {
   const activeToolNumber = parsedProgram.finalState.toolNumber ?? tool.toolNumber;
   const planeMode = formatPlaneMode(parsedProgram.finalState.planeMode);
   const unitMode = formatUnitMode(parsedProgram.finalState.unitMode);
+
+  const resetCamera = () => {
+    if (!controlsRef.current) {
+      return;
+    }
+
+    controlsRef.current.target.set(
+      workpiece.width / 2,
+      -workpiece.height / 2,
+      workpiece.depth / 2,
+    );
+    controlsRef.current.object.position.set(
+      workpiece.width * 0.95,
+      workpiece.height * 1.9,
+      workpiece.depth * 1.2,
+    );
+    controlsRef.current.update();
+  };
 
   return (
     <PanelShell
@@ -259,6 +303,28 @@ export function Viewer3D() {
             />
             <span className="w-12 text-right text-cyan-100">{playbackSpeed.toFixed(2)}x</span>
           </label>
+          <label className="inline-flex items-center gap-2 text-sm text-slate-300">
+            <input
+              type="checkbox"
+              checked={showToolpath}
+              onChange={(event) => setShowToolpath(event.target.checked)}
+            />
+            Werkzeugbahn
+          </label>
+          <label className="inline-flex items-center gap-2 text-sm text-slate-300">
+            <input
+              type="checkbox"
+              checked={showCutPreview}
+              onChange={(event) => setShowCutPreview(event.target.checked)}
+            />
+            Schnittvorschau
+          </label>
+          <button
+            className="rounded-full border border-slate-700 px-4 py-2 text-sm text-slate-200 transition hover:border-cyan-400/50"
+            onClick={resetCamera}
+          >
+            Kamera zurücksetzen
+          </button>
           <span className="ml-auto text-sm text-slate-400">
             {elapsedSeconds.toFixed(1)}s / {runtimeSeconds.toFixed(1)}s
           </span>
@@ -282,15 +348,19 @@ export function Viewer3D() {
               shadows
               camera={{
                 position: [
-                  workpiece.width * 0.9,
-                  workpiece.height * 2.1,
-                  workpiece.depth * 1.3,
+                  workpiece.width * 0.95,
+                  workpiece.height * 1.9,
+                  workpiece.depth * 1.2,
                 ],
                 fov: 42,
               }}
             >
               <color attach="background" args={["#02070e"]} />
-              <WorkpieceScene />
+              <WorkpieceScene
+                showToolpath={showToolpath}
+                showCutPreview={showCutPreview}
+                controlsRef={controlsRef}
+              />
             </Canvas>
           </div>
         </div>
@@ -298,4 +368,3 @@ export function Viewer3D() {
     </PanelShell>
   );
 }
-

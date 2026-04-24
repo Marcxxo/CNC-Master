@@ -1,8 +1,8 @@
-import { describe, expect, it } from "vitest";
+﻿import { describe, expect, it } from "vitest";
 import { interpolateArcXY } from "@/lib/cnc/arcs";
 import { parseGCode } from "@/lib/cnc/parser";
 import { getSimulationFrame } from "@/lib/cnc/simulation";
-import { SAMPLE_GCODE } from "@/lib/data/sample-gcode";
+import { BUILTIN_EXAMPLES, SAMPLE_GCODE } from "@/lib/data/examples";
 
 describe("interpolateArcXY", () => {
   it("builds a clockwise quarter arc in the XY plane", () => {
@@ -66,9 +66,16 @@ describe("parseGCode arc support", () => {
     expect(program.diagnostics.some((item) => item.code === "MISSING_ARC_CENTER")).toBe(true);
   });
 
-  it("keeps the default sample program free of diagnostics for first impressions", () => {
-    const program = parseGCode(SAMPLE_GCODE);
+  it("keeps the demo arc example free of diagnostics", () => {
+    const program = parseGCode(SAMPLE_GCODE, BUILTIN_EXAMPLES[1].workpiece, BUILTIN_EXAMPLES[1].tool);
 
     expect(program.diagnostics).toHaveLength(0);
+  });
+
+  it("keeps all built-in examples free of diagnostics", () => {
+    for (const example of BUILTIN_EXAMPLES) {
+      const program = parseGCode(example.gcode, example.workpiece, example.tool);
+      expect(program.diagnostics, example.title).toHaveLength(0);
+    }
   });
 });

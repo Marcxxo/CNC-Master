@@ -1,7 +1,7 @@
-"use client";
+﻿"use client";
 
 import { create } from "zustand";
-import { DEFAULT_TOOL, DEFAULT_WORKPIECE } from "@/lib/cnc/defaults";
+import { DEFAULT_TOOL } from "@/lib/cnc/defaults";
 import { parseGCode } from "@/lib/cnc/parser";
 import { getSimulationFrame, getTotalRuntime } from "@/lib/cnc/simulation";
 import type {
@@ -10,9 +10,15 @@ import type {
   ToolDefinition,
   WorkpieceDefinition,
 } from "@/lib/cnc/types";
-import { SAMPLE_GCODE } from "@/lib/data/sample-gcode";
+import {
+  BUILTIN_EXAMPLES,
+  DEFAULT_EXAMPLE_ID,
+  getBuiltInExample,
+} from "@/lib/data/examples";
 
 interface SimulationStore {
+  activeExampleId: string;
+  availableExamples: typeof BUILTIN_EXAMPLES;
   workpiece: WorkpieceDefinition;
   tool: ToolDefinition;
   gcode: string;
@@ -32,7 +38,7 @@ interface SimulationStore {
   pause: () => void;
   reset: () => void;
   tick: (deltaSeconds: number) => void;
-  loadExample: () => void;
+  loadExample: (exampleId: string) => void;
 }
 
 const buildDerivedSimulation = ({
@@ -56,18 +62,22 @@ const buildDerivedSimulation = ({
   };
 };
 
+const initialExample = getBuiltInExample(DEFAULT_EXAMPLE_ID);
+
 const initialDerived = buildDerivedSimulation({
-  gcode: SAMPLE_GCODE,
-  workpiece: DEFAULT_WORKPIECE,
-  tool: DEFAULT_TOOL,
+  gcode: initialExample.gcode,
+  workpiece: initialExample.workpiece,
+  tool: initialExample.tool ?? DEFAULT_TOOL,
   elapsedSeconds: 0,
   playbackSpeed: 1,
 });
 
 export const useSimulationStore = create<SimulationStore>((set, get) => ({
-  workpiece: DEFAULT_WORKPIECE,
-  tool: DEFAULT_TOOL,
-  gcode: SAMPLE_GCODE,
+  activeExampleId: initialExample.id,
+  availableExamples: BUILTIN_EXAMPLES,
+  workpiece: initialExample.workpiece,
+  tool: initialExample.tool ?? DEFAULT_TOOL,
+  gcode: initialExample.gcode,
   parsedProgram: initialDerived.parsedProgram,
   selectedLineNumber: null,
   isPlaying: false,
@@ -118,6 +128,7 @@ export const useSimulationStore = create<SimulationStore>((set, get) => ({
       playbackSpeed,
     });
     set({
+      activeExampleId: "custom",
       gcode,
       parsedProgram: derived.parsedProgram,
       elapsedSeconds: 0,
@@ -161,17 +172,21 @@ export const useSimulationStore = create<SimulationStore>((set, get) => ({
       isPlaying: nextElapsed < runtimeSeconds,
     });
   },
-  loadExample: () => {
-    const { workpiece, tool } = get();
+  loadExample: (exampleId) => {
+    const example = getBuiltInExample(exampleId);
+    const tool = example.tool ?? DEFAULT_TOOL;
     const derived = buildDerivedSimulation({
-      gcode: SAMPLE_GCODE,
-      workpiece,
+      gcode: example.gcode,
+      workpiece: example.workpiece,
       tool,
       elapsedSeconds: 0,
       playbackSpeed: 1,
     });
     set({
-      gcode: SAMPLE_GCODE,
+      activeExampleId: example.id,
+      workpiece: example.workpiece,
+      tool,
+      gcode: example.gcode,
       parsedProgram: derived.parsedProgram,
       elapsedSeconds: 0,
       runtimeSeconds: derived.runtimeSeconds,
