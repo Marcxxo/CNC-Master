@@ -8,7 +8,7 @@ describe("explainLineInGerman", () => {
     expect(explanation).toContain("im Uhrzeigersinn");
     expect(explanation).toContain("I und J");
     expect(explanation).toContain("G17-XY-Ebene");
-    expect(explanation).toContain("R-Boegen");
+    expect(explanation).toContain("R-Bögen");
     expect(explanation).toContain("G18");
     expect(explanation).toContain("G19");
   });

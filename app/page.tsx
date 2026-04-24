@@ -18,7 +18,7 @@ export default function HomePage() {
         <header className="glass-panel rounded-[34px] px-6 py-6 md:px-8">
           <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
             <div>
-              <span className="pill">CNC-Lernsimulation</span>
+              <span className="pill">CNC-Lernsimulator</span>
               <h1
                 className="mt-4 text-4xl font-semibold tracking-tight text-white md:text-5xl"
                 style={{ fontFamily: "var(--font-display)" }}
@@ -26,10 +26,9 @@ export default function HomePage() {
                 CNC Master
               </h1>
               <p className="mt-3 max-w-3xl text-sm leading-7 text-slate-300 md:text-base">
-                Definiere dein Rohteil, schreibe G-Code, prüfe Sicherheitsregeln und
-                beobachte die Werkzeugbahn in einer klaren 3D-Lernumgebung. Die
-                Architektur ist bewusst modular aufgebaut, damit später realistischere
-                Kinematik, Materialmodelle und Postprozessoren anschließen können.
+                Definiere dein Rohteil, schreibe G-Code, prüfe Lern- und
+                Sicherheitsregeln und beobachte die Werkzeugbahn in einer klaren
+                3D-Lernumgebung.
               </p>
             </div>
 

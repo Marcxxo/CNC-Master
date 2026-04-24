@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { interpolateArcXY } from "@/lib/cnc/arcs";
 import { parseGCode } from "@/lib/cnc/parser";
 import { getSimulationFrame } from "@/lib/cnc/simulation";
+import { SAMPLE_GCODE } from "@/lib/data/sample-gcode";
 
 describe("interpolateArcXY", () => {
   it("builds a clockwise quarter arc in the XY plane", () => {
@@ -63,5 +64,11 @@ describe("parseGCode arc support", () => {
     expect(program.diagnostics.some((item) => item.code === "UNSUPPORTED_PLANE_G18")).toBe(true);
     expect(program.diagnostics.some((item) => item.code === "UNSUPPORTED_R_ARC")).toBe(true);
     expect(program.diagnostics.some((item) => item.code === "MISSING_ARC_CENTER")).toBe(true);
+  });
+
+  it("keeps the default sample program free of diagnostics for first impressions", () => {
+    const program = parseGCode(SAMPLE_GCODE);
+
+    expect(program.diagnostics).toHaveLength(0);
   });
 });

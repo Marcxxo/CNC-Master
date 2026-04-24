@@ -181,7 +181,7 @@ function formatUnitMode(unitMode: string | undefined) {
   if (!unitMode) {
     return "-";
   }
-  return unitMode === "mm" ? "Millimeter" : "Inch";
+  return unitMode === "mm" ? "Millimeter" : "Zoll";
 }
 
 function StatusTile({ label, value }: { label: string; value: string }) {

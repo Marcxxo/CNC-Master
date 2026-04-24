@@ -93,7 +93,7 @@ export const validateProgram = (
           line.lineNumber,
           "warning",
           "UNSUPPORTED_R_ARC",
-          "R-basierte Boegen werden im MVP noch nicht unterstuetzt. Bitte I/J-Mittelpunktoffsets verwenden.",
+          "R-basierte Bögen werden im MVP noch nicht unterstützt. Bitte I/J-Mittelpunktoffsets verwenden.",
         ),
       );
     }
@@ -104,7 +104,7 @@ export const validateProgram = (
           line.lineNumber,
           "warning",
           "MISSING_ARC_CENTER",
-          "Fuer G2/G3 in G17 werden I- und J-Mittelpunktoffsets benoetigt.",
+          "Für G2/G3 in G17 werden I- und J-Mittelpunktoffsets benötigt.",
         ),
       );
     }
@@ -116,7 +116,7 @@ export const validateProgram = (
             line.lineNumber,
             "error",
             "INVALID_COORDINATE",
-            `Ungueltige Koordinate ${coord.raw}.`,
+            `Ungültige Koordinate ${coord.raw}.`,
           ),
         );
       }
@@ -128,7 +128,7 @@ export const validateProgram = (
           line.lineNumber,
           "warning",
           "MISSING_SPINDLE_SPEED",
-          "Spindelstart ohne S-Wert. Fuer Lernzwecke ist das erlaubt, aber in der Praxis riskant.",
+          "Spindelstart ohne S-Wert. Für Lernzwecke ist das erlaubt, aber in der Praxis riskant.",
         ),
       );
     }
@@ -184,7 +184,7 @@ export const validateProgram = (
           move.lineNumber,
           "error",
           "TOO_DEEP",
-          "Werkzeug faehrt tiefer als die Unterseite des Rohteils.",
+          "Werkzeug fährt tiefer als die Unterseite des Rohteils.",
         ),
       );
     }
@@ -198,7 +198,7 @@ export const validateProgram = (
           move.lineNumber,
           "warning",
           "BOUNDARY_COLLISION",
-          "Werkzeugmittelpunkt plus Durchmesser verlaesst die Werkstueckgrenze.",
+          "Werkzeugmittelpunkt plus Durchmesser verlässt die Werkstückgrenze.",
         ),
       );
     }
@@ -216,7 +216,7 @@ export const validateProgram = (
           move.lineNumber,
           "warning",
           "OUTSIDE_STOCK",
-          "Bewegung liegt teilweise ausserhalb des simulierten Rohmaterials.",
+          "Bewegung liegt teilweise außerhalb des simulierten Rohmaterials.",
         ),
       );
     }
@@ -227,7 +227,7 @@ export const validateProgram = (
           move.lineNumber,
           "warning",
           "FLUTE_LIMIT",
-          "Schnitttiefe ist groesser als die definierte Schneidenlaenge.",
+          "Schnitttiefe ist größer als die definierte Schneidenlänge.",
         ),
       );
     }

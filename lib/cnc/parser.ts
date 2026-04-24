@@ -142,7 +142,7 @@ export const parseGCode = (
             lineNumber: line.lineNumber,
             severity: "error",
             code: "UNKNOWN_COMMAND",
-            message: `Unbekannter oder noch nicht unterstuetzter Befehl: ${normalized}`,
+            message: `Unbekannter oder noch nicht unterstützter Befehl: ${normalized}`,
           });
         }
 
