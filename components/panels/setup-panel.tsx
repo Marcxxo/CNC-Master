@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import type { ChangeEvent } from "react";
 import { PanelShell } from "@/components/panel-shell";
@@ -12,9 +12,15 @@ export function SetupPanel() {
   const setWorkpiece = useSimulationStore((state) => state.setWorkpiece);
   const setTool = useSimulationStore((state) => state.setTool);
 
+  const originLabels: Record<typeof workpiece.originMode, string> = {
+    "top-front-left": "Oben vorne links",
+    "top-center": "Oben mittig",
+    custom: "Benutzerdefiniert",
+  };
+
   return (
     <div className="space-y-5">
-      <PanelShell title="Werkstueck" subtitle="Rohteil, Material und Nullpunkt">
+      <PanelShell title="Werkstück" subtitle="Rohteil, Material und Nullpunkt">
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <label>
             <span className="field-label">Breite X (mm)</span>
@@ -41,7 +47,7 @@ export function SetupPanel() {
             />
           </label>
           <label>
-            <span className="field-label">Hoehe Z (mm)</span>
+            <span className="field-label">Höhe Z (mm)</span>
             <input
               className="field-input"
               type="number"
@@ -82,13 +88,13 @@ export function SetupPanel() {
                 })
               }
             >
-              <option value="top-front-left">Top-front-left</option>
-              <option value="top-center">Top-center</option>
-              <option value="custom">Custom</option>
+              <option value="top-front-left">{originLabels["top-front-left"]}</option>
+              <option value="top-center">{originLabels["top-center"]}</option>
+              <option value="custom">{originLabels.custom}</option>
             </select>
           </label>
           <label>
-            <span className="field-label">Safe Z (mm)</span>
+            <span className="field-label">Sichere Z-Höhe (mm)</span>
             <input
               className="field-input"
               type="number"
@@ -102,11 +108,11 @@ export function SetupPanel() {
         </div>
       </PanelShell>
 
-      <PanelShell title="Werkzeug" subtitle="MVP-Endmill und Basisparameter">
+      <PanelShell title="Werkzeug" subtitle="Flachfräser und Grundparameter">
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <label>
             <span className="field-label">Werkzeugtyp</span>
-            <input className="field-input" value="Flat End Mill" readOnly />
+            <input className="field-input" value="Flachfräser" readOnly />
           </label>
           <label>
             <span className="field-label">Werkzeugnummer T</span>
@@ -134,7 +140,7 @@ export function SetupPanel() {
             />
           </label>
           <label>
-            <span className="field-label">Schneidenlaenge (mm)</span>
+            <span className="field-label">Schneidenlänge (mm)</span>
             <input
               className="field-input"
               type="number"
@@ -146,7 +152,7 @@ export function SetupPanel() {
             />
           </label>
           <label>
-            <span className="field-label">Gesamtlaenge (mm)</span>
+            <span className="field-label">Gesamtlänge (mm)</span>
             <input
               className="field-input"
               type="number"
@@ -158,7 +164,7 @@ export function SetupPanel() {
             />
           </label>
           <label>
-            <span className="field-label">Drehzahl S</span>
+            <span className="field-label">Spindeldrehzahl S</span>
             <input
               className="field-input"
               type="number"
@@ -186,3 +192,4 @@ export function SetupPanel() {
     </div>
   );
 }
+

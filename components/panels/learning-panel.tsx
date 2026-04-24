@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { PanelShell } from "@/components/panel-shell";
 import { useSimulationStore } from "@/lib/state/simulation-store";
@@ -11,11 +11,11 @@ export function LearningPanel() {
   const lineSource = lines.find((line) => line.lineNumber === selectedLine)?.source ?? "";
 
   return (
-    <PanelShell title="Lernhilfe" subtitle="Kurzreferenz und einfache Zeilenerklaerung">
+    <PanelShell title="Lernhilfe" subtitle="Kurzreferenz und einfache Zeilenerklärung">
       <div className="rounded-3xl border border-cyan-400/15 bg-slate-950/50 p-4">
         <p className="text-xs uppercase tracking-[0.22em] text-slate-500">Aktive Zeile</p>
         <p className="mt-2 font-mono text-sm text-cyan-100">
-          {selectedLine ? `N${selectedLine}: ${lineSource || "(leer)"}` : "Noch keine Zeile ausgewaehlt"}
+          {selectedLine ? `N${selectedLine}: ${lineSource || "(leer)"}` : "Noch keine Zeile ausgewählt"}
         </p>
         <p className="mt-3 text-sm leading-6 text-slate-300">{explainLineInGerman(lineSource)}</p>
       </div>
@@ -39,3 +39,4 @@ export function LearningPanel() {
     </PanelShell>
   );
 }
+

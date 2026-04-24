@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import dynamic from "next/dynamic";
 import { useEffect, useMemo, useRef } from "react";
@@ -67,8 +67,8 @@ export function GCodeEditorPanel() {
 
   return (
     <PanelShell
-      title="G-Code Editor"
-      subtitle="Monaco-basierter Editor mit Fehlern, Warnungen und Beispielprogramm"
+      title="G-Code-Editor"
+      subtitle="Schreibe hier deinen G-Code und prüfe Zeile für Zeile, was die Maschine lernen und fahren würde"
       actions={
         <button
           className="rounded-full border border-cyan-400/30 bg-cyan-400/10 px-4 py-2 text-sm text-cyan-100 transition hover:bg-cyan-400/20"
@@ -150,3 +150,4 @@ export function GCodeEditorPanel() {
     </PanelShell>
   );
 }
+

@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import clsx from "clsx";
 import { AlertTriangle, CircleAlert, Info } from "lucide-react";
@@ -24,8 +24,8 @@ export function DiagnosticsPanel() {
   return (
     <PanelShell
       title="Diagnostik"
-      subtitle="Parserfehler, Sicherheitswarnungen und Lernhinweise"
-      actions={<span className="pill">{diagnostics.length} Eintraege</span>}
+      subtitle="Fehler, Warnungen und Lernhinweise zum aktuellen G-Code"
+      actions={<span className="pill">{diagnostics.length} Einträge</span>}
     >
       <div className="space-y-3">
         {diagnostics.length ? (
@@ -54,10 +54,11 @@ export function DiagnosticsPanel() {
           })
         ) : (
           <div className="rounded-2xl border border-emerald-400/20 bg-emerald-400/10 p-4 text-sm text-emerald-100">
-            Keine kritischen Probleme erkannt. Die Bahn sieht fuer dieses vereinfachte Modell sicher aus.
+            Keine kritischen Probleme erkannt. Die Bahn sieht für dieses vereinfachte Lernmodell sicher aus.
           </div>
         )}
       </div>
     </PanelShell>
   );
 }
+

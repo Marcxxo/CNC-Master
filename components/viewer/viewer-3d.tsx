@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { memo, useEffect, useMemo, useRef } from "react";
 import { Canvas, useFrame } from "@react-three/fiber";
@@ -170,8 +170,32 @@ function WorkpieceScene() {
   );
 }
 
+function formatPlaneMode(planeMode: string | undefined) {
+  if (!planeMode) {
+    return "-";
+  }
+  return planeMode === "XY" ? "G17 / XY" : planeMode === "XZ" ? "G18 / XZ" : "G19 / YZ";
+}
+
+function formatUnitMode(unitMode: string | undefined) {
+  if (!unitMode) {
+    return "-";
+  }
+  return unitMode === "mm" ? "Millimeter" : "Inch";
+}
+
+function StatusTile({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-2xl border border-slate-800 bg-slate-950/45 px-3 py-3">
+      <p className="text-[11px] uppercase tracking-[0.18em] text-slate-500">{label}</p>
+      <p className="mt-1 text-sm font-semibold text-cyan-100">{value}</p>
+    </div>
+  );
+}
+
 export function Viewer3D() {
   const workpiece = useSimulationStore((state) => state.workpiece);
+  const tool = useSimulationStore((state) => state.tool);
   const play = useSimulationStore((state) => state.play);
   const pause = useSimulationStore((state) => state.pause);
   const reset = useSimulationStore((state) => state.reset);
@@ -181,6 +205,26 @@ export function Viewer3D() {
   const elapsedSeconds = useSimulationStore((state) => state.elapsedSeconds);
   const runtimeSeconds = useSimulationStore((state) => state.runtimeSeconds);
   const activeLine = useSimulationStore((state) => state.frame.activeLineNumber);
+  const frame = useSimulationStore((state) => state.frame);
+  const parsedProgram = useSimulationStore((state) => state.parsedProgram);
+
+  const activeMove = useMemo(
+    () => parsedProgram.moves.find((move) => move.lineNumber === frame.activeLineNumber),
+    [parsedProgram.moves, frame.activeLineNumber],
+  );
+
+  const spindleState = activeMove
+    ? activeMove.spindleOn
+      ? "Ein"
+      : "Aus"
+    : parsedProgram.finalState.spindleOn
+      ? "Ein"
+      : "Aus";
+
+  const currentFeed = activeMove?.feedRate ?? tool.feedRate;
+  const activeToolNumber = parsedProgram.finalState.toolNumber ?? tool.toolNumber;
+  const planeMode = formatPlaneMode(parsedProgram.finalState.planeMode);
+  const unitMode = formatUnitMode(parsedProgram.finalState.unitMode);
 
   return (
     <PanelShell
@@ -195,16 +239,16 @@ export function Viewer3D() {
             className="rounded-full bg-cyan-400 px-4 py-2 text-sm font-semibold text-slate-950 transition hover:bg-cyan-300"
             onClick={isPlaying ? pause : play}
           >
-            {isPlaying ? "Pause" : "Play"}
+            {isPlaying ? "Pause" : "Start"}
           </button>
           <button
             className="rounded-full border border-slate-700 px-4 py-2 text-sm text-slate-200 transition hover:border-cyan-400/50"
             onClick={reset}
           >
-            Reset
+            Zurücksetzen
           </button>
           <label className="flex items-center gap-3 text-sm text-slate-300">
-            Speed
+            Tempo
             <input
               type="range"
               min={0.5}
@@ -218,6 +262,18 @@ export function Viewer3D() {
           <span className="ml-auto text-sm text-slate-400">
             {elapsedSeconds.toFixed(1)}s / {runtimeSeconds.toFixed(1)}s
           </span>
+        </div>
+
+        <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
+          <StatusTile label="Position X" value={`${frame.position.x.toFixed(2)} mm`} />
+          <StatusTile label="Position Y" value={`${frame.position.y.toFixed(2)} mm`} />
+          <StatusTile label="Position Z" value={`${frame.position.z.toFixed(2)} mm`} />
+          <StatusTile label="Aktive Zeile" value={activeLine ? `N${activeLine}` : "-"} />
+          <StatusTile label="Vorschub" value={`${currentFeed.toFixed(0)} mm/min`} />
+          <StatusTile label="Spindel" value={spindleState} />
+          <StatusTile label="Werkzeug T" value={`T${activeToolNumber}`} />
+          <StatusTile label="Ebene" value={planeMode} />
+          <StatusTile label="Einheit" value={unitMode} />
         </div>
 
         <div className="rounded-[30px] border border-slate-800 bg-[#02070e] p-2">
@@ -242,3 +298,4 @@ export function Viewer3D() {
     </PanelShell>
   );
 }
+
