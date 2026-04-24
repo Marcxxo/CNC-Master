@@ -3,7 +3,10 @@ import { interpolateArcXY } from "@/lib/cnc/arcs";
 import { parseGCode } from "@/lib/cnc/parser";
 import { getSimulationFrame } from "@/lib/cnc/simulation";
 import { BUILTIN_EXAMPLES } from "@/lib/data/examples";
-import { buildScenePathPoints } from "@/components/viewer/toolpath-helpers";
+import {
+  buildCutPreviewSegments,
+  buildScenePathPoints,
+} from "@/components/viewer/toolpath-helpers";
 
 describe("interpolateArcXY", () => {
   it("builds a clockwise quarter arc in the XY plane", () => {
@@ -85,6 +88,23 @@ describe("parseGCode arc support", () => {
     const scenePoints = buildScenePathPoints(arcMove!);
     expect(scenePoints.length).toBe(arcMove!.pathPoints.length);
     expect(scenePoints.length).toBeGreaterThan(8);
+  });
+
+  it("builds cut preview segments from sampled arc points", () => {
+    const program = parseGCode([
+      "G21",
+      "G17",
+      "G90",
+      "F600",
+      "S12000 M3",
+      "G0 X45 Y25 Z8",
+      "G1 Z-2",
+      "G2 X75 Y55 I15 J15",
+    ].join("\n"));
+
+    const segments = buildCutPreviewSegments(program.moves, 10);
+    expect(segments.length).toBeGreaterThan(6);
+    expect(segments.every((segment) => segment.width >= 9)).toBe(true);
   });
 
   it("keeps all built-in examples free of diagnostics", () => {

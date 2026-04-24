@@ -6,7 +6,11 @@ import { Environment, Line, OrbitControls, RoundedBox } from "@react-three/drei"
 import * as THREE from "three";
 import { PanelShell } from "@/components/panel-shell";
 import { useSimulationStore } from "@/lib/state/simulation-store";
-import { buildScenePathPoints, toScenePosition } from "@/components/viewer/toolpath-helpers";
+import {
+  buildCutPreviewSegments,
+  buildScenePathPoints,
+  toScenePosition,
+} from "@/components/viewer/toolpath-helpers";
 
 type OrbitControlsApi = {
   object: THREE.Camera;
@@ -49,7 +53,7 @@ const ToolpathLines = memo(function ToolpathLines({
   return (
     <>
       {moves.map((move) => {
-        const points = buildScenePathPoints(move, { verticalOffset: 0.06 });
+        const points = buildScenePathPoints(move, { verticalOffset: 0.08 });
 
         if (points.length < 2) {
           return null;
@@ -80,9 +84,9 @@ const ToolpathLines = memo(function ToolpathLines({
             key={`cut-${move.id}`}
             points={points}
             color="#49d6ff"
-            lineWidth={1.85}
+            lineWidth={1.9}
             transparent
-            opacity={0.92}
+            opacity={0.94}
             depthTest={false}
             depthWrite={false}
             renderOrder={21}
@@ -99,37 +103,41 @@ const CutPreview = memo(function CutPreview({
   visible: boolean;
 }) {
   const moves = useSimulationStore((state) => state.parsedProgram.moves);
+  const tool = useSimulationStore((state) => state.tool);
+  const previewSegments = useMemo(
+    () => buildCutPreviewSegments(moves, tool.diameter),
+    [moves, tool.diameter],
+  );
 
   if (!visible) {
     return null;
   }
 
   return (
-    <>
-      {moves
-        .filter((move) => move.type !== "rapid" && move.to.z < 0)
-        .map((move) => {
-          const points = buildScenePathPoints(move, { verticalOffset: 0.03 });
-
-          if (points.length < 2) {
-            return null;
-          }
-
-          return (
-            <Line
-              key={`preview-${move.id}`}
-              points={points}
-              color="#22d3ee"
-              lineWidth={7.5}
-              transparent
-              opacity={0.14}
-              depthTest={false}
-              depthWrite={false}
-              renderOrder={10}
-            />
-          );
-        })}
-    </>
+    <group renderOrder={9}>
+      {previewSegments.map((segment) => (
+        <mesh
+          key={segment.id}
+          position={segment.sceneCenter}
+          rotation={[0, -segment.angle, 0]}
+          renderOrder={9}
+        >
+          <boxGeometry args={[segment.length, 0.24, segment.width]} />
+          <meshStandardMaterial
+            color="#0d7f96"
+            emissive="#0a5265"
+            emissiveIntensity={Math.min(0.08 + segment.depthLevel * 0.015, 0.22)}
+            metalness={0.15}
+            roughness={0.42}
+            transparent
+            opacity={Math.min(0.42 + segment.depthLevel * 0.02, 0.68)}
+            depthWrite={false}
+            polygonOffset
+            polygonOffsetFactor={-1}
+          />
+        </mesh>
+      ))}
+    </group>
   );
 });
 
@@ -197,7 +205,7 @@ function WorkpieceScene({
         <meshStandardMaterial
           color="#355b79"
           transparent
-          opacity={0.5}
+          opacity={0.52}
           metalness={0.18}
           roughness={0.68}
         />
