@@ -104,10 +104,26 @@ const CutPreview = memo(function CutPreview({
 }) {
   const moves = useSimulationStore((state) => state.parsedProgram.moves);
   const tool = useSimulationStore((state) => state.tool);
+  const cuttingMoves = useMemo(
+    () => moves.filter((move) => move.type !== "rapid" && move.to.z < 0),
+    [moves],
+  );
   const previewSegments = useMemo(
     () => buildCutPreviewSegments(moves, tool.diameter),
     [moves, tool.diameter],
   );
+
+  useEffect(() => {
+    if (
+      process.env.NODE_ENV !== "production" &&
+      cuttingMoves.length > 0 &&
+      previewSegments.length === 0
+    ) {
+      console.warn(
+        "[CNC Master] Schnittvorschau konnte keine sichtbaren Segmente erzeugen, obwohl Schneidbewegungen vorhanden sind.",
+      );
+    }
+  }, [cuttingMoves.length, previewSegments.length]);
 
   if (!visible) {
     return null;
