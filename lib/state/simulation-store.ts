@@ -70,16 +70,6 @@ const buildDerivedSimulation = ({
   };
 };
 
-const buildInitialVoxelGrid = (
-  workpiece: WorkpieceDefinition,
-  tool: ToolDefinition,
-  parsedProgram: ParsedProgram,
-): VoxelGrid => {
-  const grid = createVoxelGrid(workpiece, 0.5);
-  applyMovesToGrid(grid, parsedProgram.moves, tool.diameter / 2, parsedProgram.moves.length - 1);
-  return { ...grid };
-};
-
 const initialExample = getBuiltInExample(DEFAULT_EXAMPLE_ID);
 const initialTool = initialExample.tool ?? DEFAULT_TOOL;
 
@@ -93,13 +83,12 @@ const initialDerived = buildDerivedSimulation({
 
 export const useSimulationStore = create<SimulationStore>((set, get) => {
   const _rebuildVoxelGrid = () => {
-    const { workpiece, tool, parsedProgram } = get();
+    const { workpiece } = get();
     if (!workpiece) {
       set({ voxelGrid: null });
       return;
     }
     const grid = createVoxelGrid(workpiece, 0.5);
-    applyMovesToGrid(grid, parsedProgram.moves, tool.diameter / 2, parsedProgram.moves.length - 1);
     set({ voxelGrid: { ...grid } });
   };
 
@@ -116,11 +105,7 @@ export const useSimulationStore = create<SimulationStore>((set, get) => {
     elapsedSeconds: 0,
     runtimeSeconds: initialDerived.runtimeSeconds,
     frame: initialDerived.frame,
-    voxelGrid: buildInitialVoxelGrid(
-      initialExample.workpiece,
-      initialTool,
-      initialDerived.parsedProgram,
-    ),
+    voxelGrid: { ...createVoxelGrid(initialExample.workpiece, 0.5) },
     setWorkpiece: (workpiece) => {
       const { gcode, tool, elapsedSeconds, playbackSpeed } = get();
       const derived = buildDerivedSimulation({
