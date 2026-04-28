@@ -22,7 +22,8 @@ export interface WorkpieceDefinition {
   safeZ: number;
 }
 
-export interface ToolDefinition {
+/** @deprecated Use Tool instead */
+export interface LegacyToolDefinition {
   type: "flat-end-mill";
   diameter: number;
   fluteLength: number;
@@ -30,6 +31,38 @@ export interface ToolDefinition {
   toolNumber: number;
   spindleSpeed: number;
   feedRate: number;
+}
+
+/** @deprecated Use Tool instead — kept for backward compatibility */
+export type ToolDefinition = LegacyToolDefinition;
+
+export type ToolCategory =
+  | "schaftfraeser"
+  | "kantenfraeser"
+  | "bohrer"
+  | "senker"
+  | "gewindefraeser"
+  | "kugelfraeser";
+
+export type ToolMaterial = "hss" | "vhm" | "beschichtet";
+
+export interface Tool {
+  id: number;
+  label: string;
+  category: ToolCategory;
+  diameter: number;
+  fluteCount: number;
+  length: number;
+  cuttingLength: number;
+  material: ToolMaterial;
+  spindleSpeed: number;
+  feedRate: number;
+  notes: string;
+}
+
+export interface ToolLibrary {
+  tools: Tool[];
+  activeTool: number;
 }
 
 export interface GCodeWord {
