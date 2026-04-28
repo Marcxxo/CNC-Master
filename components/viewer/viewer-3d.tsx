@@ -7,7 +7,6 @@ import * as THREE from "three";
 import { PanelShell } from "@/components/panel-shell";
 import { useSimulationStore } from "@/lib/state/simulation-store";
 import {
-  buildCutPreviewSegments,
   buildScenePathPoints,
   toScenePosition,
 } from "@/components/viewer/toolpath-helpers";
@@ -97,65 +96,56 @@ const ToolpathLines = memo(function ToolpathLines({
   );
 });
 
-const CutPreview = memo(function CutPreview({
-  visible,
-}: {
-  visible: boolean;
-}) {
-  const moves = useSimulationStore((state) => state.parsedProgram.moves);
-  const tool = useSimulationStore((state) => state.tool);
-  const cuttingMoves = useMemo(
-    () => moves.filter((move) => move.type !== "rapid" && move.to.z < 0),
-    [moves],
-  );
-  const previewSegments = useMemo(
-    () => buildCutPreviewSegments(moves, tool.diameter),
-    [moves, tool.diameter],
-  );
+
+function VoxelMesh() {
+  const voxelGrid = useSimulationStore((s) => s.voxelGrid);
+  const meshRef = useRef<THREE.InstancedMesh>(null);
 
   useEffect(() => {
-    if (
-      process.env.NODE_ENV !== "production" &&
-      cuttingMoves.length > 0 &&
-      previewSegments.length === 0
-    ) {
-      console.warn(
-        "[CNC Master] Schnittvorschau konnte keine sichtbaren Segmente erzeugen, obwohl Schneidbewegungen vorhanden sind.",
-      );
+    if (!voxelGrid || !meshRef.current) {
+      return;
     }
-  }, [cuttingMoves.length, previewSegments.length]);
+    const mesh = meshRef.current;
+    const dummy = new THREE.Object3D();
+    let instanceIdx = 0;
+    const { cols, rows, cells, resolution, originX, originY, workpieceHeight } = voxelGrid;
 
-  if (!visible) {
+    for (let row = 0; row < rows; row++) {
+      for (let col = 0; col < cols; col++) {
+        const topZ = cells[col + row * cols];
+        const removedHeight = workpieceHeight - topZ;
+        if (removedHeight < 0.05) {
+          continue;
+        }
+
+        const x = originX + (col + 0.5) * resolution;
+        const z = originY + (row + 0.5) * resolution;
+        // Scene Y: workpiece top is at 0, bottom at -workpieceHeight.
+        // Removed zone spans from (topZ - workpieceHeight) up to 0; center is at their midpoint.
+        const y = topZ - workpieceHeight + removedHeight / 2;
+
+        dummy.position.set(x, y, z);
+        dummy.scale.set(resolution * 0.97, removedHeight, resolution * 0.97);
+        dummy.updateMatrix();
+        mesh.setMatrixAt(instanceIdx++, dummy.matrix);
+      }
+    }
+    mesh.count = instanceIdx;
+    mesh.instanceMatrix.needsUpdate = true;
+  }, [voxelGrid]);
+
+  if (!voxelGrid) {
     return null;
   }
+  const maxInstances = Math.min(voxelGrid.cols * voxelGrid.rows, 50000);
 
   return (
-    <group renderOrder={9}>
-      {previewSegments.map((segment) => (
-        <mesh
-          key={segment.id}
-          position={segment.sceneCenter}
-          rotation={[0, -segment.angle, 0]}
-          renderOrder={9}
-        >
-          <boxGeometry args={[segment.length, 0.24, segment.width]} />
-          <meshStandardMaterial
-            color="#0d7f96"
-            emissive="#0a5265"
-            emissiveIntensity={Math.min(0.08 + segment.depthLevel * 0.015, 0.22)}
-            metalness={0.15}
-            roughness={0.42}
-            transparent
-            opacity={Math.min(0.42 + segment.depthLevel * 0.02, 0.68)}
-            depthWrite={false}
-            polygonOffset
-            polygonOffsetFactor={-1}
-          />
-        </mesh>
-      ))}
-    </group>
+    <instancedMesh ref={meshRef} args={[undefined, undefined, maxInstances]}>
+      <boxGeometry args={[1, 1, 1]} />
+      <meshStandardMaterial color="#1a3a52" roughness={0.25} metalness={0.65} />
+    </instancedMesh>
   );
-});
+}
 
 function WorkpieceScene({
   showToolpath,
@@ -219,14 +209,15 @@ function WorkpieceScene({
         receiveShadow
       >
         <meshStandardMaterial
-          color="#355b79"
+          color="#4a7a9b"
           transparent
-          opacity={0.52}
+          opacity={0.07}
           metalness={0.18}
           roughness={0.68}
+          depthWrite={false}
         />
       </RoundedBox>
-      <CutPreview visible={showCutPreview} />
+      {showCutPreview && <VoxelMesh />}
       <ToolpathLines visible={showToolpath} />
       <AnimatedTool />
       <mesh position={toScenePosition(frame.position.x, frame.position.y, 0)} renderOrder={25}>
