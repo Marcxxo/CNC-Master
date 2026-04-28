@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { create } from "zustand";
 import { DEFAULT_TOOL } from "@/lib/cnc/defaults";
@@ -10,6 +10,12 @@ import type {
   ToolDefinition,
   WorkpieceDefinition,
 } from "@/lib/cnc/types";
+import {
+  type VoxelGrid,
+  applyMovesToGrid,
+  createVoxelGrid,
+  resetVoxelGrid,
+} from "@/lib/cnc/voxel";
 import {
   BUILTIN_EXAMPLES,
   DEFAULT_EXAMPLE_ID,
@@ -29,6 +35,7 @@ interface SimulationStore {
   elapsedSeconds: number;
   runtimeSeconds: number;
   frame: SimulationFrame;
+  voxelGrid: VoxelGrid | null;
   setWorkpiece: (value: WorkpieceDefinition) => void;
   setTool: (value: ToolDefinition) => void;
   setGCode: (value: string) => void;
@@ -39,6 +46,7 @@ interface SimulationStore {
   reset: () => void;
   tick: (deltaSeconds: number) => void;
   loadExample: (exampleId: string) => void;
+  updateVoxelToFrame: (moveIndex: number) => void;
 }
 
 const buildDerivedSimulation = ({
@@ -62,138 +70,183 @@ const buildDerivedSimulation = ({
   };
 };
 
+const buildInitialVoxelGrid = (
+  workpiece: WorkpieceDefinition,
+  tool: ToolDefinition,
+  parsedProgram: ParsedProgram,
+): VoxelGrid => {
+  const grid = createVoxelGrid(workpiece, 0.5);
+  applyMovesToGrid(grid, parsedProgram.moves, tool.diameter / 2, parsedProgram.moves.length - 1);
+  return { ...grid };
+};
+
 const initialExample = getBuiltInExample(DEFAULT_EXAMPLE_ID);
+const initialTool = initialExample.tool ?? DEFAULT_TOOL;
 
 const initialDerived = buildDerivedSimulation({
   gcode: initialExample.gcode,
   workpiece: initialExample.workpiece,
-  tool: initialExample.tool ?? DEFAULT_TOOL,
+  tool: initialTool,
   elapsedSeconds: 0,
   playbackSpeed: 1,
 });
 
-export const useSimulationStore = create<SimulationStore>((set, get) => ({
-  activeExampleId: initialExample.id,
-  availableExamples: BUILTIN_EXAMPLES,
-  workpiece: initialExample.workpiece,
-  tool: initialExample.tool ?? DEFAULT_TOOL,
-  gcode: initialExample.gcode,
-  parsedProgram: initialDerived.parsedProgram,
-  selectedLineNumber: null,
-  isPlaying: false,
-  playbackSpeed: 1,
-  elapsedSeconds: 0,
-  runtimeSeconds: initialDerived.runtimeSeconds,
-  frame: initialDerived.frame,
-  setWorkpiece: (workpiece) => {
-    const { gcode, tool, elapsedSeconds, playbackSpeed } = get();
-    const derived = buildDerivedSimulation({
-      gcode,
-      workpiece,
-      tool,
-      elapsedSeconds,
-      playbackSpeed,
-    });
-    set({
-      workpiece,
-      parsedProgram: derived.parsedProgram,
-      runtimeSeconds: derived.runtimeSeconds,
-      frame: derived.frame,
-    });
-  },
-  setTool: (tool) => {
-    const { gcode, workpiece, elapsedSeconds, playbackSpeed } = get();
-    const derived = buildDerivedSimulation({
-      gcode,
-      workpiece,
-      tool,
-      elapsedSeconds,
-      playbackSpeed,
-    });
-    set({
-      tool,
-      parsedProgram: derived.parsedProgram,
-      runtimeSeconds: derived.runtimeSeconds,
-      frame: derived.frame,
-    });
-  },
-  setGCode: (gcode) => {
-    const { workpiece, tool } = get();
-    const playbackSpeed = get().playbackSpeed;
-    const derived = buildDerivedSimulation({
-      gcode,
-      workpiece,
-      tool,
-      elapsedSeconds: 0,
-      playbackSpeed,
-    });
-    set({
-      activeExampleId: "custom",
-      gcode,
-      parsedProgram: derived.parsedProgram,
-      elapsedSeconds: 0,
-      runtimeSeconds: derived.runtimeSeconds,
-      frame: derived.frame,
-      isPlaying: false,
-      selectedLineNumber: null,
-    });
-  },
-  selectLine: (selectedLineNumber) => set({ selectedLineNumber }),
-  setPlaybackSpeed: (playbackSpeed) => {
-    const { parsedProgram, elapsedSeconds } = get();
-    set({
-      playbackSpeed,
-      runtimeSeconds: getTotalRuntime(parsedProgram, playbackSpeed),
-      frame: getSimulationFrame(parsedProgram, elapsedSeconds, playbackSpeed),
-    });
-  },
-  play: () => set({ isPlaying: true }),
-  pause: () => set({ isPlaying: false }),
-  reset: () => {
-    const { parsedProgram, playbackSpeed } = get();
-    set({
-      isPlaying: false,
-      elapsedSeconds: 0,
-      frame: getSimulationFrame(parsedProgram, 0, playbackSpeed),
-    });
-  },
-  tick: (deltaSeconds) => {
-    const { isPlaying, elapsedSeconds, runtimeSeconds, parsedProgram, playbackSpeed } = get();
-    if (!isPlaying) {
+export const useSimulationStore = create<SimulationStore>((set, get) => {
+  const _rebuildVoxelGrid = () => {
+    const { workpiece, tool, parsedProgram } = get();
+    if (!workpiece) {
+      set({ voxelGrid: null });
       return;
     }
+    const grid = createVoxelGrid(workpiece, 0.5);
+    applyMovesToGrid(grid, parsedProgram.moves, tool.diameter / 2, parsedProgram.moves.length - 1);
+    set({ voxelGrid: { ...grid } });
+  };
 
-    const nextElapsed = Math.min(elapsedSeconds + deltaSeconds, runtimeSeconds);
-    const frame = getSimulationFrame(parsedProgram, nextElapsed, playbackSpeed);
-    set({
-      elapsedSeconds: nextElapsed,
-      frame,
-      selectedLineNumber: frame.activeLineNumber,
-      isPlaying: nextElapsed < runtimeSeconds,
-    });
-  },
-  loadExample: (exampleId) => {
-    const example = getBuiltInExample(exampleId);
-    const tool = example.tool ?? DEFAULT_TOOL;
-    const derived = buildDerivedSimulation({
-      gcode: example.gcode,
-      workpiece: example.workpiece,
-      tool,
-      elapsedSeconds: 0,
-      playbackSpeed: 1,
-    });
-    set({
-      activeExampleId: example.id,
-      workpiece: example.workpiece,
-      tool,
-      gcode: example.gcode,
-      parsedProgram: derived.parsedProgram,
-      elapsedSeconds: 0,
-      runtimeSeconds: derived.runtimeSeconds,
-      playbackSpeed: 1,
-      frame: derived.frame,
-      isPlaying: false,
-      selectedLineNumber: null,
-    });
-  },
-}));
+  return {
+    activeExampleId: initialExample.id,
+    availableExamples: BUILTIN_EXAMPLES,
+    workpiece: initialExample.workpiece,
+    tool: initialTool,
+    gcode: initialExample.gcode,
+    parsedProgram: initialDerived.parsedProgram,
+    selectedLineNumber: null,
+    isPlaying: false,
+    playbackSpeed: 1,
+    elapsedSeconds: 0,
+    runtimeSeconds: initialDerived.runtimeSeconds,
+    frame: initialDerived.frame,
+    voxelGrid: buildInitialVoxelGrid(
+      initialExample.workpiece,
+      initialTool,
+      initialDerived.parsedProgram,
+    ),
+    setWorkpiece: (workpiece) => {
+      const { gcode, tool, elapsedSeconds, playbackSpeed } = get();
+      const derived = buildDerivedSimulation({
+        gcode,
+        workpiece,
+        tool,
+        elapsedSeconds,
+        playbackSpeed,
+      });
+      set({
+        workpiece,
+        parsedProgram: derived.parsedProgram,
+        runtimeSeconds: derived.runtimeSeconds,
+        frame: derived.frame,
+      });
+    },
+    setTool: (tool) => {
+      const { gcode, workpiece, elapsedSeconds, playbackSpeed } = get();
+      const derived = buildDerivedSimulation({
+        gcode,
+        workpiece,
+        tool,
+        elapsedSeconds,
+        playbackSpeed,
+      });
+      set({
+        tool,
+        parsedProgram: derived.parsedProgram,
+        runtimeSeconds: derived.runtimeSeconds,
+        frame: derived.frame,
+      });
+    },
+    setGCode: (gcode) => {
+      const { workpiece, tool } = get();
+      const playbackSpeed = get().playbackSpeed;
+      const derived = buildDerivedSimulation({
+        gcode,
+        workpiece,
+        tool,
+        elapsedSeconds: 0,
+        playbackSpeed,
+      });
+      set({
+        activeExampleId: "custom",
+        gcode,
+        parsedProgram: derived.parsedProgram,
+        elapsedSeconds: 0,
+        runtimeSeconds: derived.runtimeSeconds,
+        frame: derived.frame,
+        isPlaying: false,
+        selectedLineNumber: null,
+      });
+      _rebuildVoxelGrid();
+    },
+    selectLine: (selectedLineNumber) => set({ selectedLineNumber }),
+    setPlaybackSpeed: (playbackSpeed) => {
+      const { parsedProgram, elapsedSeconds } = get();
+      set({
+        playbackSpeed,
+        runtimeSeconds: getTotalRuntime(parsedProgram, playbackSpeed),
+        frame: getSimulationFrame(parsedProgram, elapsedSeconds, playbackSpeed),
+      });
+    },
+    play: () => set({ isPlaying: true }),
+    pause: () => set({ isPlaying: false }),
+    reset: () => {
+      const { parsedProgram, playbackSpeed } = get();
+      set({
+        isPlaying: false,
+        elapsedSeconds: 0,
+        frame: getSimulationFrame(parsedProgram, 0, playbackSpeed),
+        voxelGrid: null,
+      });
+      _rebuildVoxelGrid();
+    },
+    tick: (deltaSeconds) => {
+      const { isPlaying, elapsedSeconds, runtimeSeconds, parsedProgram, playbackSpeed } = get();
+      if (!isPlaying) {
+        return;
+      }
+
+      const nextElapsed = Math.min(elapsedSeconds + deltaSeconds, runtimeSeconds);
+      const frame = getSimulationFrame(parsedProgram, nextElapsed, playbackSpeed);
+      set({
+        elapsedSeconds: nextElapsed,
+        frame,
+        selectedLineNumber: frame.activeLineNumber,
+        isPlaying: nextElapsed < runtimeSeconds,
+      });
+
+      if (get().voxelGrid !== null) {
+        get().updateVoxelToFrame(frame.moveIndex);
+      }
+    },
+    loadExample: (exampleId) => {
+      const example = getBuiltInExample(exampleId);
+      const tool = example.tool ?? DEFAULT_TOOL;
+      const derived = buildDerivedSimulation({
+        gcode: example.gcode,
+        workpiece: example.workpiece,
+        tool,
+        elapsedSeconds: 0,
+        playbackSpeed: 1,
+      });
+      set({
+        activeExampleId: example.id,
+        workpiece: example.workpiece,
+        tool,
+        gcode: example.gcode,
+        parsedProgram: derived.parsedProgram,
+        elapsedSeconds: 0,
+        runtimeSeconds: derived.runtimeSeconds,
+        playbackSpeed: 1,
+        frame: derived.frame,
+        isPlaying: false,
+        selectedLineNumber: null,
+      });
+    },
+    updateVoxelToFrame: (moveIndex) => {
+      const grid = get().voxelGrid;
+      if (!grid) {
+        return;
+      }
+      resetVoxelGrid(grid);
+      applyMovesToGrid(grid, get().parsedProgram.moves, get().tool.diameter / 2, moveIndex);
+      set({ voxelGrid: { ...grid } });
+    },
+  };
+});
