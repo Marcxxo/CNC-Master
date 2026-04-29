@@ -1,5 +1,6 @@
 import { getPathLength, getPointAlongPath } from "@/lib/cnc/arcs";
 import type { ParsedProgram, SimulationFrame, SimulationMove } from "@/lib/cnc/types";
+import { isSimulationMove } from "@/lib/cnc/types";
 import { clamp, distance3D, lerpVector } from "@/lib/cnc/utils";
 
 const BASE_MM_PER_SECOND = 45;
@@ -32,12 +33,18 @@ export const getSimulationFrame = (
   }
 
   let remaining = elapsedSeconds;
+  let lastSimIndex = -1;
 
   for (let index = 0; index < program.moves.length; index += 1) {
     const move = program.moves[index];
+    if (!isSimulationMove(move)) {
+      continue;
+    }
+
+    lastSimIndex = index;
     const duration = getMoveDuration(move, speedMultiplier);
 
-    if (remaining <= duration || index === program.moves.length - 1) {
+    if (remaining <= duration) {
       const progress = duration === 0 ? 1 : clamp(remaining / duration, 0, 1);
       return {
         moveIndex: index,
@@ -53,14 +60,21 @@ export const getSimulationFrame = (
     remaining -= duration;
   }
 
-  const lastMove = program.moves[program.moves.length - 1];
-  return {
-    moveIndex: program.moves.length - 1,
-    progress: 1,
-    position: lastMove.to,
-    activeLineNumber: lastMove.lineNumber,
-  };
+  if (lastSimIndex >= 0) {
+    const lastMove = program.moves[lastSimIndex] as SimulationMove;
+    return {
+      moveIndex: lastSimIndex,
+      progress: 1,
+      position: lastMove.to,
+      activeLineNumber: lastMove.lineNumber,
+    };
+  }
+
+  return { moveIndex: 0, progress: 0, position: { x: 0, y: 0, z: 0 }, activeLineNumber: null };
 };
 
 export const getTotalRuntime = (program: ParsedProgram, speedMultiplier: number) =>
-  program.moves.reduce((sum, move) => sum + getMoveDuration(move, speedMultiplier), 0);
+  program.moves.reduce(
+    (sum, move) => (isSimulationMove(move) ? sum + getMoveDuration(move, speedMultiplier) : sum),
+    0,
+  );

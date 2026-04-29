@@ -5,12 +5,16 @@ import type {
   GCodeWord,
   MachineState,
   ParsedLine,
+  ParsedMove,
   ParsedProgram,
   PlaneMode,
   PositionMode,
   SimulationMove,
+  ToolChangeMove,
   Vector3,
+  WcsMove,
 } from "@/lib/cnc/types";
+import { isSimulationMove } from "@/lib/cnc/types";
 import { validateProgram } from "@/lib/cnc/validator";
 import type { ToolDefinition, WorkpieceDefinition } from "@/lib/cnc/types";
 
@@ -29,12 +33,23 @@ const SUPPORTED_CODES = new Set([
   "G19",
   "G20",
   "G21",
+  "G54",
+  "G55",
+  "G56",
+  "G57",
+  "G58",
+  "G59",
   "G90",
   "G91",
+  "M2",
+  "M02",
   "M3",
   "M03",
   "M5",
   "M05",
+  "M6",
+  "M06",
+  "M30",
 ]);
 
 const emptyState = (): MachineState => ({
@@ -117,9 +132,10 @@ export const parseGCode = (
 ): ParsedProgram => {
   const diagnostics: Diagnostic[] = [];
   const lines = buildParsedLines(source);
-  const moves: SimulationMove[] = [];
+  const moves: ParsedMove[] = [];
   const state = emptyState();
   let activeMotion: string | null = null;
+  let pendingToolNumber: number | undefined;
 
   // Future extension point:
   // here we can inject machine-specific modal groups, canned cycles,
@@ -132,6 +148,8 @@ export const parseGCode = (
     const axisValues: Partial<Vector3> = {};
     let centerOffsetI: number | undefined;
     let centerOffsetJ: number | undefined;
+    let lineHasT = false;
+    let lineHasM6 = false;
 
     for (const word of line.words) {
       if (word.letter === "G" || word.letter === "M") {
@@ -174,6 +192,40 @@ export const parseGCode = (
         if (normalized === "M5" || normalized === "M05") {
           state.spindleOn = false;
         }
+
+        if (normalized === "M6" || normalized === "M06") {
+          lineHasM6 = true;
+          if (pendingToolNumber !== undefined) {
+            const tc: ToolChangeMove = {
+              type: "tool-change",
+              id: `tc-${line.lineNumber}`,
+              lineNumber: line.lineNumber,
+              toolNumber: pendingToolNumber,
+            };
+            moves.push(tc);
+            state.toolNumber = pendingToolNumber;
+            pendingToolNumber = undefined;
+          } else {
+            diagnostics.push({
+              id: `${line.lineNumber}-MISSING_TOOL_NUMBER`,
+              lineNumber: line.lineNumber,
+              severity: "warning",
+              code: "MISSING_TOOL_NUMBER",
+              message: "M6 ohne vorherige T-Nummer. Werkzeugwechsel kann nicht ausgeführt werden.",
+            });
+          }
+        }
+
+        const wcsNum = Number(normalized.slice(1));
+        if (normalized.startsWith("G") && wcsNum >= 54 && wcsNum <= 59) {
+          const wcs: WcsMove = {
+            type: "wcs",
+            id: `wcs-${line.lineNumber}`,
+            lineNumber: line.lineNumber,
+            wcsNumber: wcsNum,
+          };
+          moves.push(wcs);
+        }
       }
 
       if (word.letter === "F" && typeof word.value === "number") {
@@ -185,7 +237,8 @@ export const parseGCode = (
       }
 
       if (word.letter === "T" && typeof word.value === "number") {
-        state.toolNumber = word.value;
+        lineHasT = true;
+        pendingToolNumber = word.value;
       }
 
       if (word.letter === "X" && typeof word.value === "number") {
@@ -203,6 +256,16 @@ export const parseGCode = (
       if (word.letter === "J" && typeof word.value === "number") {
         centerOffsetJ = word.value;
       }
+    }
+
+    if (lineHasT && !lineHasM6) {
+      diagnostics.push({
+        id: `${line.lineNumber}-TOOL_WITHOUT_M6`,
+        lineNumber: line.lineNumber,
+        severity: "warning",
+        code: "TOOL_WITHOUT_M6",
+        message: "T-Wort ohne M6 auf derselben Zeile. Werkzeugwechsel wird nicht ausgeführt.",
+      });
     }
 
     const hasMotion =
@@ -271,7 +334,7 @@ export const parseGCode = (
     state.position = nextPosition;
   }
 
-  const validationDiagnostics = validateProgram(lines, moves, state, workpiece, tool);
+  const validationDiagnostics = validateProgram(lines, moves.filter(isSimulationMove), state, workpiece, tool);
 
   return {
     lines,
