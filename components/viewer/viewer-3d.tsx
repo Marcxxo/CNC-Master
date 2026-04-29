@@ -19,7 +19,8 @@ type OrbitControlsApi = {
 };
 
 function AnimatedTool() {
-  const tool = useSimulationStore((state) => state.tool);
+  const toolLibrary = useSimulationStore((s) => s.toolLibrary);
+  const tool = toolLibrary.tools.find((t) => t.id === toolLibrary.activeTool) ?? toolLibrary.tools[0];
   const frame = useSimulationStore((state) => state.frame);
   const meshRef = useRef<THREE.Mesh>(null);
 
@@ -28,12 +29,12 @@ function AnimatedTool() {
       return;
     }
     const { x, y, z } = frame.position;
-    meshRef.current.position.copy(toScenePosition(x, y, z + tool.totalLength / 2));
+    meshRef.current.position.copy(toScenePosition(x, y, z + tool.length / 2));
   });
 
   return (
     <mesh ref={meshRef} castShadow renderOrder={30}>
-      <cylinderGeometry args={[tool.diameter / 2, tool.diameter / 2, tool.totalLength, 32]} />
+      <cylinderGeometry args={[tool.diameter / 2, tool.diameter / 2, tool.length, 32]} />
       <meshStandardMaterial color="#93c5fd" metalness={0.45} roughness={0.25} />
     </mesh>
   );
@@ -266,7 +267,8 @@ function StatusTile({ label, value }: { label: string; value: string }) {
 
 export function Viewer3D() {
   const workpiece = useSimulationStore((state) => state.workpiece);
-  const tool = useSimulationStore((state) => state.tool);
+  const toolLibrary = useSimulationStore((s) => s.toolLibrary);
+  const tool = toolLibrary.tools.find((t) => t.id === toolLibrary.activeTool) ?? toolLibrary.tools[0];
   const play = useSimulationStore((state) => state.play);
   const pause = useSimulationStore((state) => state.pause);
   const reset = useSimulationStore((state) => state.reset);
@@ -296,7 +298,7 @@ export function Viewer3D() {
       : "Aus";
 
   const currentFeed = activeMove?.feedRate ?? tool.feedRate;
-  const activeToolNumber = parsedProgram.finalState.toolNumber ?? tool.toolNumber;
+  const activeToolNumber = parsedProgram.finalState.toolNumber ?? tool.id;
   const planeMode = formatPlaneMode(parsedProgram.finalState.planeMode);
   const unitMode = formatUnitMode(parsedProgram.finalState.unitMode);
 

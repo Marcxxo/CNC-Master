@@ -1,13 +1,15 @@
 "use client";
 
 import { create } from "zustand";
-import { DEFAULT_TOOL } from "@/lib/cnc/defaults";
 import { parseGCode } from "@/lib/cnc/parser";
 import { getSimulationFrame, getTotalRuntime } from "@/lib/cnc/simulation";
 import type {
   ParsedProgram,
   SimulationFrame,
+  Tool,
+  ToolCategory,
   ToolDefinition,
+  ToolLibrary,
   WorkpieceDefinition,
 } from "@/lib/cnc/types";
 import {
@@ -16,6 +18,11 @@ import {
   createVoxelGrid,
   resetVoxelGrid,
 } from "@/lib/cnc/voxel";
+import {
+  applyTemplate,
+  buildToolLabel,
+  createDefaultToolLibrary,
+} from "@/lib/data/tool-library";
 import {
   BUILTIN_EXAMPLES,
   DEFAULT_EXAMPLE_ID,
@@ -26,7 +33,7 @@ interface SimulationStore {
   activeExampleId: string;
   availableExamples: typeof BUILTIN_EXAMPLES;
   workpiece: WorkpieceDefinition;
-  tool: ToolDefinition;
+  toolLibrary: ToolLibrary;
   gcode: string;
   parsedProgram: ParsedProgram;
   selectedLineNumber: number | null;
@@ -37,7 +44,9 @@ interface SimulationStore {
   frame: SimulationFrame;
   voxelGrid: VoxelGrid | null;
   setWorkpiece: (value: WorkpieceDefinition) => void;
-  setTool: (value: ToolDefinition) => void;
+  setTool: (tNumber: number, updates: Partial<Tool>) => void;
+  setActiveTool: (tNumber: number) => void;
+  applyToolTemplate: (tNumber: number, category: ToolCategory) => void;
   setGCode: (value: string) => void;
   selectLine: (value: number | null) => void;
   setPlaybackSpeed: (value: number) => void;
@@ -48,6 +57,16 @@ interface SimulationStore {
   loadExample: (exampleId: string) => void;
   updateVoxelToFrame: (moveIndex: number) => void;
 }
+
+const toToolDefinition = (tool: Tool): ToolDefinition => ({
+  type: "flat-end-mill",
+  diameter: tool.diameter,
+  fluteLength: tool.cuttingLength,
+  totalLength: tool.length,
+  toolNumber: tool.id,
+  spindleSpeed: tool.spindleSpeed,
+  feedRate: tool.feedRate,
+});
 
 const buildDerivedSimulation = ({
   gcode,
@@ -71,12 +90,15 @@ const buildDerivedSimulation = ({
 };
 
 const initialExample = getBuiltInExample(DEFAULT_EXAMPLE_ID);
-const initialTool = initialExample.tool ?? DEFAULT_TOOL;
+const initialToolLibrary = createDefaultToolLibrary();
+const _initActiveTool =
+  initialToolLibrary.tools.find((t) => t.id === initialToolLibrary.activeTool) ??
+  initialToolLibrary.tools[0];
 
 const initialDerived = buildDerivedSimulation({
   gcode: initialExample.gcode,
   workpiece: initialExample.workpiece,
-  tool: initialTool,
+  tool: toToolDefinition(_initActiveTool),
   elapsedSeconds: 0,
   playbackSpeed: 1,
 });
@@ -92,11 +114,19 @@ export const useSimulationStore = create<SimulationStore>((set, get) => {
     set({ voxelGrid: { ...grid } });
   };
 
+  const getActiveTool = (): Tool => {
+    const { toolLibrary } = get();
+    return (
+      toolLibrary.tools.find((t) => t.id === toolLibrary.activeTool) ??
+      toolLibrary.tools[0]
+    );
+  };
+
   return {
     activeExampleId: initialExample.id,
     availableExamples: BUILTIN_EXAMPLES,
     workpiece: initialExample.workpiece,
-    tool: initialTool,
+    toolLibrary: initialToolLibrary,
     gcode: initialExample.gcode,
     parsedProgram: initialDerived.parsedProgram,
     selectedLineNumber: null,
@@ -107,11 +137,11 @@ export const useSimulationStore = create<SimulationStore>((set, get) => {
     frame: initialDerived.frame,
     voxelGrid: { ...createVoxelGrid(initialExample.workpiece, 0.5) },
     setWorkpiece: (workpiece) => {
-      const { gcode, tool, elapsedSeconds, playbackSpeed } = get();
+      const { gcode, elapsedSeconds, playbackSpeed } = get();
       const derived = buildDerivedSimulation({
         gcode,
         workpiece,
-        tool,
+        tool: toToolDefinition(getActiveTool()),
         elapsedSeconds,
         playbackSpeed,
       });
@@ -122,29 +152,33 @@ export const useSimulationStore = create<SimulationStore>((set, get) => {
         frame: derived.frame,
       });
     },
-    setTool: (tool) => {
-      const { gcode, workpiece, elapsedSeconds, playbackSpeed } = get();
-      const derived = buildDerivedSimulation({
-        gcode,
-        workpiece,
-        tool,
-        elapsedSeconds,
-        playbackSpeed,
+    setTool: (tNumber, updates) => {
+      const { toolLibrary } = get();
+      const tools = toolLibrary.tools.map((t) => {
+        if (t.id !== tNumber) return t;
+        const updated = { ...t, ...updates };
+        return { ...updated, label: buildToolLabel(updated) };
       });
-      set({
-        tool,
-        parsedProgram: derived.parsedProgram,
-        runtimeSeconds: derived.runtimeSeconds,
-        frame: derived.frame,
-      });
+      if ("diameter" in updates) _rebuildVoxelGrid();
+      set({ toolLibrary: { ...toolLibrary, tools } });
+    },
+    setActiveTool: (tNumber) => {
+      const { toolLibrary } = get();
+      set({ toolLibrary: { ...toolLibrary, activeTool: tNumber } });
+    },
+    applyToolTemplate: (tNumber, category) => {
+      const { toolLibrary } = get();
+      const tools = toolLibrary.tools.map((t) =>
+        t.id !== tNumber ? t : applyTemplate(t, category),
+      );
+      set({ toolLibrary: { ...toolLibrary, tools } });
     },
     setGCode: (gcode) => {
-      const { workpiece, tool } = get();
-      const playbackSpeed = get().playbackSpeed;
+      const { workpiece, playbackSpeed } = get();
       const derived = buildDerivedSimulation({
         gcode,
         workpiece,
-        tool,
+        tool: toToolDefinition(getActiveTool()),
         elapsedSeconds: 0,
         playbackSpeed,
       });
@@ -196,24 +230,27 @@ export const useSimulationStore = create<SimulationStore>((set, get) => {
         isPlaying: nextElapsed < runtimeSeconds,
       });
 
+      const currentMove = parsedProgram.moves[frame.moveIndex];
+      if (currentMove?.type === "tool-change") {
+        get().setActiveTool(currentMove.toolNumber);
+      }
+
       if (get().voxelGrid !== null) {
         get().updateVoxelToFrame(frame.moveIndex);
       }
     },
     loadExample: (exampleId) => {
       const example = getBuiltInExample(exampleId);
-      const tool = example.tool ?? DEFAULT_TOOL;
       const derived = buildDerivedSimulation({
         gcode: example.gcode,
         workpiece: example.workpiece,
-        tool,
+        tool: toToolDefinition(getActiveTool()),
         elapsedSeconds: 0,
         playbackSpeed: 1,
       });
       set({
         activeExampleId: example.id,
         workpiece: example.workpiece,
-        tool,
         gcode: example.gcode,
         parsedProgram: derived.parsedProgram,
         elapsedSeconds: 0,
@@ -230,7 +267,7 @@ export const useSimulationStore = create<SimulationStore>((set, get) => {
         return;
       }
       resetVoxelGrid(grid);
-      applyMovesToGrid(grid, get().parsedProgram.moves, get().tool.diameter / 2, moveIndex);
+      applyMovesToGrid(grid, get().parsedProgram.moves, getActiveTool().diameter / 2, moveIndex);
       set({ voxelGrid: { ...grid } });
     },
   };

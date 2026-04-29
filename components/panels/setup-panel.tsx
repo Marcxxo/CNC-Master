@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import type { ChangeEvent } from "react";
 import { PanelShell } from "@/components/panel-shell";
@@ -8,9 +8,11 @@ const numberValue = (event: ChangeEvent<HTMLInputElement>) => Number(event.targe
 
 export function SetupPanel() {
   const workpiece = useSimulationStore((state) => state.workpiece);
-  const tool = useSimulationStore((state) => state.tool);
+  const toolLibrary = useSimulationStore((s) => s.toolLibrary);
+  const tool = toolLibrary.tools.find((t) => t.id === toolLibrary.activeTool) ?? toolLibrary.tools[0];
   const setWorkpiece = useSimulationStore((state) => state.setWorkpiece);
   const setTool = useSimulationStore((state) => state.setTool);
+  const setActiveTool = useSimulationStore((state) => state.setActiveTool);
 
   const originLabels: Record<typeof workpiece.originMode, string> = {
     "top-front-left": "Oben vorne links",
@@ -120,10 +122,9 @@ export function SetupPanel() {
               className="field-input"
               type="number"
               min={1}
-              value={tool.toolNumber}
-              onChange={(event) =>
-                setTool({ ...tool, toolNumber: numberValue(event) })
-              }
+              max={9}
+              value={tool.id}
+              onChange={(event) => setActiveTool(numberValue(event))}
             />
           </label>
           <label>
@@ -134,9 +135,7 @@ export function SetupPanel() {
               min={0.1}
               step="0.1"
               value={tool.diameter}
-              onChange={(event) =>
-                setTool({ ...tool, diameter: numberValue(event) })
-              }
+              onChange={(event) => setTool(tool.id, { diameter: numberValue(event) })}
             />
           </label>
           <label>
@@ -145,10 +144,8 @@ export function SetupPanel() {
               className="field-input"
               type="number"
               min={1}
-              value={tool.fluteLength}
-              onChange={(event) =>
-                setTool({ ...tool, fluteLength: numberValue(event) })
-              }
+              value={tool.cuttingLength}
+              onChange={(event) => setTool(tool.id, { cuttingLength: numberValue(event) })}
             />
           </label>
           <label>
@@ -157,10 +154,8 @@ export function SetupPanel() {
               className="field-input"
               type="number"
               min={1}
-              value={tool.totalLength}
-              onChange={(event) =>
-                setTool({ ...tool, totalLength: numberValue(event) })
-              }
+              value={tool.length}
+              onChange={(event) => setTool(tool.id, { length: numberValue(event) })}
             />
           </label>
           <label>
@@ -170,9 +165,7 @@ export function SetupPanel() {
               type="number"
               min={0}
               value={tool.spindleSpeed}
-              onChange={(event) =>
-                setTool({ ...tool, spindleSpeed: numberValue(event) })
-              }
+              onChange={(event) => setTool(tool.id, { spindleSpeed: numberValue(event) })}
             />
           </label>
           <label className="sm:col-span-2">
@@ -182,9 +175,7 @@ export function SetupPanel() {
               type="number"
               min={1}
               value={tool.feedRate}
-              onChange={(event) =>
-                setTool({ ...tool, feedRate: numberValue(event) })
-              }
+              onChange={(event) => setTool(tool.id, { feedRate: numberValue(event) })}
             />
           </label>
         </div>
@@ -192,4 +183,3 @@ export function SetupPanel() {
     </div>
   );
 }
-
