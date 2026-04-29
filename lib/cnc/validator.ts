@@ -1,6 +1,7 @@
 import { DEFAULT_TOOL, DEFAULT_WORKPIECE } from "@/lib/cnc/defaults";
 import type {
   Diagnostic,
+  DiagnosticCode,
   MachineState,
   ParsedLine,
   SimulationMove,
@@ -12,7 +13,7 @@ import { isFiniteNumber } from "@/lib/cnc/utils";
 const makeDiagnostic = (
   lineNumber: number,
   severity: Diagnostic["severity"],
-  code: string,
+  code: DiagnosticCode,
   message: string,
 ): Diagnostic => ({
   id: `${lineNumber}-${code}-${message}`,

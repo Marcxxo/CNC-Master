@@ -111,17 +111,57 @@ export interface SimulationMove {
   arc?: ArcDefinition;
 }
 
+export interface ToolChangeMove {
+  type: "tool-change";
+  id: string;
+  lineNumber: number;
+  toolNumber: number;
+}
+
+export interface WcsMove {
+  type: "wcs";
+  id: string;
+  lineNumber: number;
+  wcsNumber: number;
+}
+
+export type ParsedMove = SimulationMove | ToolChangeMove | WcsMove;
+
+export function isSimulationMove(move: ParsedMove): move is SimulationMove {
+  return move.type === "rapid" || move.type === "cut" || move.type === "arc";
+}
+
+export type DiagnosticCode =
+  | "UNKNOWN_COMMAND"
+  | "TOOL_WITHOUT_M6"
+  | "MISSING_TOOL_NUMBER"
+  | "INCH_MODE"
+  | "MISSING_FEED"
+  | "UNSUPPORTED_PLANE_G18"
+  | "UNSUPPORTED_PLANE_G19"
+  | "UNSUPPORTED_R_ARC"
+  | "MISSING_ARC_CENTER"
+  | "INVALID_COORDINATE"
+  | "MISSING_SPINDLE_SPEED"
+  | "FEED_REQUIRED"
+  | "SPINDLE_OFF"
+  | "UNSAFE_RAPID_Z"
+  | "TOO_DEEP"
+  | "BOUNDARY_COLLISION"
+  | "OUTSIDE_STOCK"
+  | "FLUTE_LIMIT";
+
 export interface Diagnostic {
   id: string;
   lineNumber: number;
   severity: DiagnosticSeverity;
-  code: string;
+  code: DiagnosticCode;
   message: string;
 }
 
 export interface ParsedProgram {
   lines: ParsedLine[];
-  moves: SimulationMove[];
+  moves: ParsedMove[];
   diagnostics: Diagnostic[];
   finalState: MachineState;
 }

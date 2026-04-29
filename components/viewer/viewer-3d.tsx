@@ -6,6 +6,7 @@ import { Environment, Line, OrbitControls, RoundedBox } from "@react-three/drei"
 import * as THREE from "three";
 import { PanelShell } from "@/components/panel-shell";
 import { useSimulationStore } from "@/lib/state/simulation-store";
+import { isSimulationMove } from "@/lib/cnc/types";
 import {
   buildScenePathPoints,
   toScenePosition,
@@ -43,7 +44,8 @@ const ToolpathLines = memo(function ToolpathLines({
 }: {
   visible: boolean;
 }) {
-  const moves = useSimulationStore((state) => state.parsedProgram.moves);
+  const allMoves = useSimulationStore((state) => state.parsedProgram.moves);
+  const moves = allMoves.filter(isSimulationMove);
 
   if (!visible) {
     return null;
@@ -281,7 +283,7 @@ export function Viewer3D() {
   const controlsRef = useRef<OrbitControlsApi | null>(null);
 
   const activeMove = useMemo(
-    () => parsedProgram.moves.find((move) => move.lineNumber === frame.activeLineNumber),
+    () => parsedProgram.moves.filter(isSimulationMove).find((move) => move.lineNumber === frame.activeLineNumber),
     [parsedProgram.moves, frame.activeLineNumber],
   );
 

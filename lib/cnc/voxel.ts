@@ -1,4 +1,5 @@
-import type { SimulationMove } from "@/lib/cnc/types";
+import type { ParsedMove } from "@/lib/cnc/types";
+import { isSimulationMove } from "@/lib/cnc/types";
 
 export interface VoxelGrid {
   cells: Float32Array;
@@ -69,7 +70,7 @@ export function applyToolAtPosition(
 
 export function applyMovesToGrid(
   grid: VoxelGrid,
-  moves: SimulationMove[],
+  moves: ParsedMove[],
   toolRadius: number,
   upToMoveIndex: number,
 ): void {
@@ -79,7 +80,7 @@ export function applyMovesToGrid(
 
   for (let i = 0; i <= limit; i++) {
     const move = moves[i];
-    if (move.type === "rapid") {
+    if (!isSimulationMove(move) || move.type === "rapid") {
       continue;
     }
 
