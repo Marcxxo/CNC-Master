@@ -12,6 +12,7 @@ Werkzeugbewegung in einer live 2.5D-Voxel-Simulation verfolgen.
 - G2/G3 Kreisinterpolation (IJ- und R-Variante)
 - Regelbasierte Validierung: fehlende Spindel, Z-Übertiefung, G90/G91-Mix
 - Schnittgeschwindigkeit / Drehzahl / Vorschub Rechner
+- Multi-Werkzeug-System T1–T9 mit Vorlagen und automatischem Werkzeugwechsel während Playback
 
 ## Tech Stack
 
@@ -24,7 +25,7 @@ Werkzeugbewegung in einer live 2.5D-Voxel-Simulation verfolgen.
 ```bash
 npm install
 npm run dev        # http://localhost:3000
-npm test           # 16 Tests (parser, arcs, voxel, learning)
+npm test           # 23 Tests (parser, arcs, voxel, learning)
 npx tsc --noEmit   # Type-Check
 ```
 

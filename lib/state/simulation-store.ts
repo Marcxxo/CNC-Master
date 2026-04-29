@@ -206,12 +206,13 @@ export const useSimulationStore = create<SimulationStore>((set, get) => {
     play: () => set({ isPlaying: true }),
     pause: () => set({ isPlaying: false }),
     reset: () => {
-      const { parsedProgram, playbackSpeed } = get();
+      const { parsedProgram, playbackSpeed, toolLibrary } = get();
       set({
         isPlaying: false,
         elapsedSeconds: 0,
         frame: getSimulationFrame(parsedProgram, 0, playbackSpeed),
         voxelGrid: null,
+        toolLibrary: { ...toolLibrary, activeTool: initialToolLibrary.activeTool },
       });
       _rebuildVoxelGrid();
     },
@@ -230,9 +231,15 @@ export const useSimulationStore = create<SimulationStore>((set, get) => {
         isPlaying: nextElapsed < runtimeSeconds,
       });
 
-      const currentMove = parsedProgram.moves[frame.moveIndex];
-      if (currentMove?.type === "tool-change") {
-        get().setActiveTool(currentMove.toolNumber);
+      // getSimulationFrame only returns indices of SimulationMoves, so we scan
+      // backwards from the current index to find the last ToolChangeMove.
+      let lastTcTool: number | undefined;
+      for (let i = 0; i <= frame.moveIndex && i < parsedProgram.moves.length; i++) {
+        const m = parsedProgram.moves[i];
+        if (m.type === "tool-change") lastTcTool = m.toolNumber;
+      }
+      if (lastTcTool !== undefined && lastTcTool !== get().toolLibrary.activeTool) {
+        get().setActiveTool(lastTcTool);
       }
 
       if (get().voxelGrid !== null) {

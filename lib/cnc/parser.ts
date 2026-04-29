@@ -41,12 +41,15 @@ const SUPPORTED_CODES = new Set([
   "G59",
   "G90",
   "G91",
+  "M2",
+  "M02",
   "M3",
   "M03",
   "M5",
   "M05",
   "M6",
   "M06",
+  "M30",
 ]);
 
 const emptyState = (): MachineState => ({
