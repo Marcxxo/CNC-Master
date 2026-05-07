@@ -1,4 +1,6 @@
-node_modules
-.next
-out
-coverage
+node_modules/
+.next/
+out/
+coverage/
+*.tsbuildinfo
+.env*.local

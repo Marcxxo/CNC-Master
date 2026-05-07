@@ -5,6 +5,7 @@ export type DiagnosticSeverity = "error" | "warning" | "info";
 export type UnitMode = "mm" | "inch";
 export type PositionMode = "absolute" | "incremental";
 export type PlaneMode = "XY" | "XZ" | "YZ";
+export type CuttingMode = "climb" | "conventional" | "unknown";
 
 export interface Vector3 {
   x: number;
@@ -22,7 +23,8 @@ export interface WorkpieceDefinition {
   safeZ: number;
 }
 
-export interface ToolDefinition {
+/** @deprecated Use Tool instead */
+export interface LegacyToolDefinition {
   type: "flat-end-mill";
   diameter: number;
   fluteLength: number;
@@ -30,6 +32,38 @@ export interface ToolDefinition {
   toolNumber: number;
   spindleSpeed: number;
   feedRate: number;
+}
+
+/** @deprecated Use Tool instead — kept for backward compatibility */
+export type ToolDefinition = LegacyToolDefinition;
+
+export type ToolCategory =
+  | "schaftfraeser"
+  | "kantenfraeser"
+  | "bohrer"
+  | "senker"
+  | "gewindefraeser"
+  | "kugelfraeser";
+
+export type ToolMaterial = "hss" | "vhm" | "beschichtet";
+
+export interface Tool {
+  id: number;
+  label: string;
+  category: ToolCategory;
+  diameter: number;
+  fluteCount: number;
+  length: number;
+  cuttingLength: number;
+  material: ToolMaterial;
+  spindleSpeed: number;
+  feedRate: number;
+  notes: string;
+}
+
+export interface ToolLibrary {
+  tools: Tool[];
+  activeTool: number;
 }
 
 export interface GCodeWord {
@@ -73,22 +107,65 @@ export interface SimulationMove {
   feedRate?: number;
   spindleOn: boolean;
   isCutting: boolean;
+  cuttingMode: CuttingMode;
   warnings: string[];
   pathPoints: Vector3[];
   arc?: ArcDefinition;
 }
 
+export interface ToolChangeMove {
+  type: "tool-change";
+  id: string;
+  lineNumber: number;
+  toolNumber: number;
+}
+
+export interface WcsMove {
+  type: "wcs";
+  id: string;
+  lineNumber: number;
+  wcsNumber: number;
+}
+
+export type ParsedMove = SimulationMove | ToolChangeMove | WcsMove;
+
+export function isSimulationMove(move: ParsedMove): move is SimulationMove {
+  return move.type === "rapid" || move.type === "cut" || move.type === "arc";
+}
+
+export type DiagnosticCode =
+  | "UNKNOWN_COMMAND"
+  | "TOOL_WITHOUT_M6"
+  | "MISSING_TOOL_NUMBER"
+  | "INCH_MODE"
+  | "MISSING_FEED"
+  | "UNSUPPORTED_PLANE_G18"
+  | "UNSUPPORTED_PLANE_G19"
+  | "UNSUPPORTED_R_ARC"
+  | "MISSING_ARC_CENTER"
+  | "INVALID_COORDINATE"
+  | "MISSING_SPINDLE_SPEED"
+  | "FEED_REQUIRED"
+  | "SPINDLE_OFF"
+  | "UNSAFE_RAPID_Z"
+  | "TOO_DEEP"
+  | "BOUNDARY_COLLISION"
+  | "OUTSIDE_STOCK"
+  | "FLUTE_LIMIT"
+  | "CLIMB_MILLING"
+  | "CONVENTIONAL_MILLING";
+
 export interface Diagnostic {
   id: string;
   lineNumber: number;
   severity: DiagnosticSeverity;
-  code: string;
+  code: DiagnosticCode;
   message: string;
 }
 
 export interface ParsedProgram {
   lines: ParsedLine[];
-  moves: SimulationMove[];
+  moves: ParsedMove[];
   diagnostics: Diagnostic[];
   finalState: MachineState;
 }

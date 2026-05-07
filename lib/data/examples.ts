@@ -28,7 +28,7 @@ export const BUILTIN_EXAMPLES: BuiltInExample[] = [
 G21
 G17
 G90
-T1
+T1 M6
 S12000 M3
 F450
 G0 X15 Y15 Z8
@@ -70,7 +70,7 @@ M5
 G21
 G17
 G90
-T1
+T1 M6
 S12000 M3
 F500
 G0 X45 Y25 Z8
@@ -86,6 +86,36 @@ G3 X45 Y25 I15 J0
 G0 Z8
 M5
 %`,
+  },
+  {
+    id: "tool-change",
+    title: "Werkzeugwechsel T1–T2",
+    description:
+      "Zwei Werkzeuge in einem Programm: Schaftfräser für Konturbearbeitung, danach Bohrer für eine Tiefenbohrung.",
+    workpiece: {
+      width: 80,
+      depth: 60,
+      height: 20,
+      material: "aluminum",
+      originMode: "top-front-left",
+      safeZ: 5,
+    },
+    gcode: `(Werkzeugwechsel T1-T2)
+G21 G90 G54
+T1 M6
+M03 S3000
+G00 X10 Y10 Z5
+G01 Z-5 F100
+G01 X50 F300
+G01 Z5
+M05
+T2 M6
+M03 S2000
+G00 X20 Y20 Z5
+G01 Z-15 F80
+G01 Z5
+M05
+M30`,
   },
 ];
 

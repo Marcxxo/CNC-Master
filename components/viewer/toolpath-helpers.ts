@@ -1,5 +1,6 @@
 ﻿import * as THREE from "three";
-import type { SimulationMove, Vector3 } from "@/lib/cnc/types";
+import type { ParsedMove, SimulationMove, Vector3 } from "@/lib/cnc/types";
+import { isSimulationMove } from "@/lib/cnc/types";
 
 interface ScenePointOptions {
   verticalOffset?: number;
@@ -39,11 +40,11 @@ export const buildScenePathPoints = (
 ) => move.pathPoints.map((point) => toSceneVector(point, options));
 
 export const buildCutPreviewSegments = (
-  moves: SimulationMove[],
+  moves: ParsedMove[],
   toolDiameter: number,
 ) =>
   moves
-    .filter((move) => move.type !== "rapid" && move.to.z < 0)
+    .filter((move): move is SimulationMove => isSimulationMove(move) && move.type !== "rapid" && move.to.z < 0)
     .flatMap((move) =>
       move.pathPoints.slice(1).flatMap((point, index) => {
         const start = move.pathPoints[index];

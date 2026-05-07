@@ -2,6 +2,7 @@
 import { interpolateArcXY } from "@/lib/cnc/arcs";
 import { parseGCode } from "@/lib/cnc/parser";
 import { getSimulationFrame } from "@/lib/cnc/simulation";
+import { isSimulationMove } from "@/lib/cnc/types";
 import { BUILTIN_EXAMPLES } from "@/lib/data/examples";
 import {
   buildCutPreviewSegments,
@@ -37,7 +38,7 @@ describe("parseGCode arc support", () => {
       "G2 X0 Y-10 I-10 J0",
     ].join("\n"));
 
-    const arcMove = program.moves.find((move) => move.type === "arc");
+    const arcMove = program.moves.filter(isSimulationMove).find((move) => move.type === "arc");
 
     expect(arcMove).toBeDefined();
     expect(arcMove?.pathPoints.length).toBeGreaterThan(8);
@@ -82,7 +83,7 @@ describe("parseGCode arc support", () => {
       "G2 X75 Y55 I15 J15",
     ].join("\n"));
 
-    const arcMove = program.moves.find((move) => move.type === "arc");
+    const arcMove = program.moves.filter(isSimulationMove).find((move) => move.type === "arc");
     expect(arcMove).toBeDefined();
 
     const scenePoints = buildScenePathPoints(arcMove!);
@@ -107,10 +108,10 @@ describe("parseGCode arc support", () => {
     expect(segments.every((segment) => segment.width >= 9)).toBe(true);
   });
 
-  it("keeps all built-in examples free of diagnostics", () => {
+  it("keeps all built-in examples free of error/warning diagnostics", () => {
     for (const example of BUILTIN_EXAMPLES) {
       const program = parseGCode(example.gcode, example.workpiece, example.tool);
-      expect(program.diagnostics, example.title).toHaveLength(0);
+      expect(program.diagnostics.filter((d) => d.severity !== "info"), example.title).toHaveLength(0);
     }
   });
 });
