@@ -108,10 +108,10 @@ describe("parseGCode arc support", () => {
     expect(segments.every((segment) => segment.width >= 9)).toBe(true);
   });
 
-  it("keeps all built-in examples free of diagnostics", () => {
+  it("keeps all built-in examples free of error/warning diagnostics", () => {
     for (const example of BUILTIN_EXAMPLES) {
       const program = parseGCode(example.gcode, example.workpiece, example.tool);
-      expect(program.diagnostics, example.title).toHaveLength(0);
+      expect(program.diagnostics.filter((d) => d.severity !== "info"), example.title).toHaveLength(0);
     }
   });
 });

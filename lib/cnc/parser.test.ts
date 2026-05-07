@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { parseGCode } from "@/lib/cnc/parser";
 import { DEFAULT_TOOL, DEFAULT_WORKPIECE } from "@/lib/cnc/defaults";
 import { BUILTIN_EXAMPLES } from "@/lib/data/examples";
+import { isSimulationMove } from "@/lib/cnc/types";
 
 describe("T+M6 Werkzeugwechsel", () => {
   it("T1 M6 erzeugt einen tool-change Move mit toolNumber=1", () => {
@@ -61,5 +62,56 @@ describe("Werkzeugwechsel-Beispiel", () => {
 
     expect(result.diagnostics.some((d) => d.code === "UNKNOWN_COMMAND")).toBe(false);
     expect(result.diagnostics.some((d) => d.code === "TOOL_WITHOUT_M6")).toBe(false);
+  });
+});
+
+const ARC_GCODE = (spindle: string, arcCmd: string) =>
+  `G21 G17 G90\n${spindle}\nF100\nG0 X20 Y10 Z2\nG1 Z-1\n${arcCmd}`;
+
+describe("cuttingMode Erkennung", () => {
+  it("M3 + G02 → climb", () => {
+    const result = parseGCode(ARC_GCODE("S1000 M3", "G2 X10 Y20 I-10 J10"), DEFAULT_WORKPIECE, DEFAULT_TOOL);
+    const arc = result.moves.filter(isSimulationMove).find((m) => m.type === "arc");
+    expect(arc?.cuttingMode).toBe("climb");
+  });
+
+  it("M3 + G03 → conventional", () => {
+    const result = parseGCode(ARC_GCODE("S1000 M3", "G3 X10 Y20 I-10 J10"), DEFAULT_WORKPIECE, DEFAULT_TOOL);
+    const arc = result.moves.filter(isSimulationMove).find((m) => m.type === "arc");
+    expect(arc?.cuttingMode).toBe("conventional");
+  });
+
+  it("M4 + G02 → conventional", () => {
+    const result = parseGCode(ARC_GCODE("S1000 M4", "G2 X10 Y20 I-10 J10"), DEFAULT_WORKPIECE, DEFAULT_TOOL);
+    const arc = result.moves.filter(isSimulationMove).find((m) => m.type === "arc");
+    expect(arc?.cuttingMode).toBe("conventional");
+  });
+
+  it("M4 + G03 → climb", () => {
+    const result = parseGCode(ARC_GCODE("S1000 M4", "G3 X10 Y20 I-10 J10"), DEFAULT_WORKPIECE, DEFAULT_TOOL);
+    const arc = result.moves.filter(isSimulationMove).find((m) => m.type === "arc");
+    expect(arc?.cuttingMode).toBe("climb");
+  });
+
+  it("G02 ohne Spindel → unknown", () => {
+    const result = parseGCode("G21 G17 G90\nF100\nG0 X20 Y10 Z2\nG2 X10 Y20 I-10 J10", DEFAULT_WORKPIECE, DEFAULT_TOOL);
+    const arc = result.moves.filter(isSimulationMove).find((m) => m.type === "arc");
+    expect(arc?.cuttingMode).toBe("unknown");
+  });
+
+  it("M5 vor G02 → unknown", () => {
+    const result = parseGCode("G21 G17 G90\nS1000 M3\nM5\nF100\nG0 X20 Y10 Z2\nG2 X10 Y20 I-10 J10", DEFAULT_WORKPIECE, DEFAULT_TOOL);
+    const arc = result.moves.filter(isSimulationMove).find((m) => m.type === "arc");
+    expect(arc?.cuttingMode).toBe("unknown");
+  });
+
+  it("M3 + G02 erzeugt CLIMB_MILLING Info-Diagnose", () => {
+    const result = parseGCode(ARC_GCODE("S1000 M3", "G2 X10 Y20 I-10 J10"), DEFAULT_WORKPIECE, DEFAULT_TOOL);
+    expect(result.diagnostics.some((d) => d.code === "CLIMB_MILLING")).toBe(true);
+  });
+
+  it("M3 + G03 erzeugt CONVENTIONAL_MILLING Info-Diagnose", () => {
+    const result = parseGCode(ARC_GCODE("S1000 M3", "G3 X10 Y20 I-10 J10"), DEFAULT_WORKPIECE, DEFAULT_TOOL);
+    expect(result.diagnostics.some((d) => d.code === "CONVENTIONAL_MILLING")).toBe(true);
   });
 });

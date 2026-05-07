@@ -27,6 +27,7 @@ function makeMove(
     to: pathPoints[pathPoints.length - 1] ?? { x: 0, y: 0, z: 0 },
     spindleOn: true,
     isCutting: type === "cut",
+    cuttingMode: "unknown",
     warnings: [],
     pathPoints,
   };

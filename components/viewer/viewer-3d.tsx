@@ -6,7 +6,7 @@ import { Environment, Line, OrbitControls, RoundedBox } from "@react-three/drei"
 import * as THREE from "three";
 import { PanelShell } from "@/components/panel-shell";
 import { useSimulationStore } from "@/lib/state/simulation-store";
-import { isSimulationMove } from "@/lib/cnc/types";
+import { isSimulationMove, type SimulationMove } from "@/lib/cnc/types";
 import {
   buildScenePathPoints,
   toScenePosition,
@@ -38,6 +38,16 @@ function AnimatedTool() {
       <meshStandardMaterial color="#93c5fd" metalness={0.45} roughness={0.25} />
     </mesh>
   );
+}
+
+function getMoveColor(move: SimulationMove): string {
+  if (move.type === "rapid") return "#89b4ff";
+  if (move.type === "arc") {
+    if (move.cuttingMode === "climb") return "#4ade80";
+    if (move.cuttingMode === "conventional") return "#fb923c";
+    return "#94a3b8";
+  }
+  return "#49d6ff";
 }
 
 const ToolpathLines = memo(function ToolpathLines({
@@ -85,7 +95,7 @@ const ToolpathLines = memo(function ToolpathLines({
           <Line
             key={`cut-${move.id}`}
             points={points}
-            color="#49d6ff"
+            color={getMoveColor(move)}
             lineWidth={1.9}
             transparent
             opacity={0.94}
@@ -289,6 +299,11 @@ export function Viewer3D() {
     [parsedProgram.moves, frame.activeLineNumber],
   );
 
+  const hasArcMoves = useMemo(
+    () => parsedProgram.moves.filter(isSimulationMove).some((m) => m.type === "arc"),
+    [parsedProgram.moves],
+  );
+
   const spindleState = activeMove
     ? activeMove.spindleOn
       ? "Ein"
@@ -392,7 +407,7 @@ export function Viewer3D() {
           <StatusTile label="Einheit" value={unitMode} />
         </div>
 
-        <div className="rounded-[30px] border border-slate-800 bg-[#02070e] p-2">
+        <div className="relative rounded-[30px] border border-slate-800 bg-[#02070e] p-2">
           <div className="h-[460px] overflow-hidden rounded-[24px]">
             <Canvas
               shadows
@@ -413,6 +428,16 @@ export function Viewer3D() {
               />
             </Canvas>
           </div>
+          {showToolpath && hasArcMoves && (
+            <div className="absolute bottom-6 right-6 rounded-xl border border-slate-700/60 bg-slate-950/80 px-3 py-2 text-xs backdrop-blur-sm">
+              <p className="mb-1.5 text-[10px] uppercase tracking-widest text-slate-500">Fräsart</p>
+              <div className="flex flex-col gap-1">
+                <span className="flex items-center gap-2 text-slate-300"><span className="inline-block h-2 w-2 rounded-full bg-[#4ade80]" />Gleichlauf</span>
+                <span className="flex items-center gap-2 text-slate-300"><span className="inline-block h-2 w-2 rounded-full bg-[#fb923c]" />Gegenlauf</span>
+                <span className="flex items-center gap-2 text-slate-300"><span className="inline-block h-2 w-2 rounded-full bg-[#94a3b8]" />Unbekannt</span>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </PanelShell>

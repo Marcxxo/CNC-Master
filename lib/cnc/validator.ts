@@ -234,5 +234,37 @@ export const validateProgram = (
     }
   }
 
+  for (const move of moves) {
+    if (move.type !== "arc") continue;
+    if (move.cuttingMode === "climb") {
+      diagnostics.push(
+        makeDiagnostic(
+          move.lineNumber,
+          "info",
+          "CLIMB_MILLING",
+          "Gleichlauffräsen erkannt: Bogen läuft in Spindeldrehrichtung.",
+        ),
+      );
+    } else if (move.cuttingMode === "conventional") {
+      diagnostics.push(
+        makeDiagnostic(
+          move.lineNumber,
+          "info",
+          "CONVENTIONAL_MILLING",
+          "Gegenlauffräsen erkannt: Bogen läuft gegen die Spindeldrehrichtung.",
+        ),
+      );
+    } else {
+      diagnostics.push(
+        makeDiagnostic(
+          move.lineNumber,
+          "warning",
+          "CONVENTIONAL_MILLING",
+          "Bogenbewegung ohne bekannte Spindeldrehrichtung — Einstellungsart unbekannt.",
+        ),
+      );
+    }
+  }
+
   return diagnostics;
 };

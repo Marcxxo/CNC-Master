@@ -1,6 +1,7 @@
 import { DEFAULT_TOOL } from "@/lib/cnc/defaults";
 import { interpolateArcXY } from "@/lib/cnc/arcs";
 import type {
+  CuttingMode,
   Diagnostic,
   GCodeWord,
   MachineState,
@@ -45,6 +46,8 @@ const SUPPORTED_CODES = new Set([
   "M02",
   "M3",
   "M03",
+  "M4",
+  "M04",
   "M5",
   "M05",
   "M6",
@@ -113,6 +116,14 @@ const getPlaneMode = (code: string): PlaneMode | null => {
   return null;
 };
 
+const computeCuttingMode = (
+  arcDir: "cw" | "ccw",
+  spindleDir: "cw" | "ccw" | null,
+): CuttingMode => {
+  if (spindleDir === null) return "unknown";
+  return arcDir === spindleDir ? "climb" : "conventional";
+};
+
 const buildParsedLines = (source: string): ParsedLine[] =>
   source.split(/\r?\n/).map((line, index) => {
     const { sanitized, comment } = cleanLine(line);
@@ -136,6 +147,7 @@ export const parseGCode = (
   const state = emptyState();
   let activeMotion: string | null = null;
   let pendingToolNumber: number | undefined;
+  let spindleDirection: "cw" | "ccw" | null = null;
 
   // Future extension point:
   // here we can inject machine-specific modal groups, canned cycles,
@@ -188,9 +200,15 @@ export const parseGCode = (
 
         if (normalized === "M3" || normalized === "M03") {
           state.spindleOn = true;
+          spindleDirection = "cw";
+        }
+        if (normalized === "M4" || normalized === "M04") {
+          state.spindleOn = true;
+          spindleDirection = "ccw";
         }
         if (normalized === "M5" || normalized === "M05") {
           state.spindleOn = false;
+          spindleDirection = null;
         }
 
         if (normalized === "M6" || normalized === "M06") {
@@ -315,6 +333,9 @@ export const parseGCode = (
       feedRate: state.feedRate ?? DEFAULT_TOOL.feedRate,
       spindleOn: state.spindleOn,
       isCutting: moveType !== "rapid",
+      cuttingMode: moveType === "arc"
+        ? computeCuttingMode(activeMotion === "G2" || activeMotion === "G02" ? "cw" : "ccw", spindleDirection)
+        : "unknown",
       warnings: [],
       pathPoints,
       arc: canInterpolateArc && centerOffsetI !== undefined && centerOffsetJ !== undefined

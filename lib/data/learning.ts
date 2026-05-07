@@ -1,8 +1,37 @@
-export const GCODE_REFERENCE = [
+export interface GCodeEntry {
+  code: string;
+  label: string;
+  description: string;
+  levels?: {
+    beginner: string;
+    intermediate: string;
+    advanced: string;
+  };
+}
+
+export const GCODE_REFERENCE: GCodeEntry[] = [
   { code: "G0", label: "G0 Schnellfahrt", description: "Schnelle Verfahrbewegung ohne Schnitt." },
   { code: "G1", label: "G1 Lineare Schnittbewegung", description: "Lineare Vorschubbewegung für den eigentlichen Schnitt." },
-  { code: "G2", label: "G2 Kreisbogen im Uhrzeigersinn", description: "Kreisbogen im Uhrzeigersinn. In diesem MVP nur in G17 auf der XY-Ebene mit I/J-Mittelpunktoffsets." },
-  { code: "G3", label: "G3 Kreisbogen gegen den Uhrzeigersinn", description: "Kreisbogen gegen den Uhrzeigersinn. In diesem MVP nur in G17 auf der XY-Ebene mit I/J-Mittelpunktoffsets." },
+  {
+    code: "G2",
+    label: "G2 Kreisbogen im Uhrzeigersinn",
+    description: "Kreisbogen im Uhrzeigersinn. In diesem MVP nur in G17 auf der XY-Ebene mit I/J-Mittelpunktoffsets.",
+    levels: {
+      beginner: "G2 fährt einen Bogen im Uhrzeigersinn. Du brauchst I und J, damit der Fräser weiß, wo der Kreismittelpunkt liegt.",
+      intermediate: "G2 interpoliert Bögen CW (clockwise). I ist der Versatz des Kreismittelpunkts in X, J in Y — relativ zur aktuellen Position. Die Spindeldrehrichtung (M3/M4) bestimmt, ob es Gleichlauf oder Gegenlauf ist.",
+      advanced: "G2 ist CW-Arc-Interpolation in der aktiven Ebene (G17: XY). Mit M3 (CW-Spindel) entsteht Gleichlauffräsen: das Werkzeug greift von außen ins Material, Späne werden dünner am Schnittende — geringere Wärme, bessere Oberfläche, aber höhere Seitenkraft auf das Werkzeug.",
+    },
+  },
+  {
+    code: "G3",
+    label: "G3 Kreisbogen gegen den Uhrzeigersinn",
+    description: "Kreisbogen gegen den Uhrzeigersinn. In diesem MVP nur in G17 auf der XY-Ebene mit I/J-Mittelpunktoffsets.",
+    levels: {
+      beginner: "G3 fährt einen Bogen gegen den Uhrzeigersinn (links herum). Auch hier sind I und J nötig für den Bogenmittelpunkt.",
+      intermediate: "G3 interpoliert Bögen CCW (counter-clockwise). Mit M3 (CW-Spindel) ergibt das Gegenlauffräsen: das Werkzeug läuft gegen die Spindeldrehrichtung ins Material.",
+      advanced: "G3 ist CCW-Arc-Interpolation. Mit M3 entsteht Gegenlauffräsen: Spandicke beginnt dünn und wächst — höhere Reibungswärme, aber weniger Vibrationsneigung. Für weiche Materialien und schwächere Maschinen oft robuster als Gleichlauf.",
+    },
+  },
   { code: "F", label: "Vorschub", description: "Vorschubgeschwindigkeit des Werkzeugs." },
   { code: "S", label: "Spindeldrehzahl", description: "Drehzahl der Spindel." },
   { code: "T", label: "Werkzeugauswahl", description: "Aktive Werkzeugnummer." },

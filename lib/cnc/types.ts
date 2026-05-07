@@ -5,6 +5,7 @@ export type DiagnosticSeverity = "error" | "warning" | "info";
 export type UnitMode = "mm" | "inch";
 export type PositionMode = "absolute" | "incremental";
 export type PlaneMode = "XY" | "XZ" | "YZ";
+export type CuttingMode = "climb" | "conventional" | "unknown";
 
 export interface Vector3 {
   x: number;
@@ -106,6 +107,7 @@ export interface SimulationMove {
   feedRate?: number;
   spindleOn: boolean;
   isCutting: boolean;
+  cuttingMode: CuttingMode;
   warnings: string[];
   pathPoints: Vector3[];
   arc?: ArcDefinition;
@@ -149,7 +151,9 @@ export type DiagnosticCode =
   | "TOO_DEEP"
   | "BOUNDARY_COLLISION"
   | "OUTSIDE_STOCK"
-  | "FLUTE_LIMIT";
+  | "FLUTE_LIMIT"
+  | "CLIMB_MILLING"
+  | "CONVENTIONAL_MILLING";
 
 export interface Diagnostic {
   id: string;
