@@ -1,16 +1,21 @@
 import { DEFAULT_TOOL } from "@/lib/cnc/defaults";
 import { interpolateArcXY } from "@/lib/cnc/arcs";
 import type {
+  CuttingMode,
   Diagnostic,
   GCodeWord,
   MachineState,
   ParsedLine,
+  ParsedMove,
   ParsedProgram,
   PlaneMode,
   PositionMode,
   SimulationMove,
+  ToolChangeMove,
   Vector3,
+  WcsMove,
 } from "@/lib/cnc/types";
+import { isSimulationMove } from "@/lib/cnc/types";
 import { validateProgram } from "@/lib/cnc/validator";
 import type { ToolDefinition, WorkpieceDefinition } from "@/lib/cnc/types";
 
@@ -29,12 +34,25 @@ const SUPPORTED_CODES = new Set([
   "G19",
   "G20",
   "G21",
+  "G54",
+  "G55",
+  "G56",
+  "G57",
+  "G58",
+  "G59",
   "G90",
   "G91",
+  "M2",
+  "M02",
   "M3",
   "M03",
+  "M4",
+  "M04",
   "M5",
   "M05",
+  "M6",
+  "M06",
+  "M30",
 ]);
 
 const emptyState = (): MachineState => ({
@@ -98,6 +116,14 @@ const getPlaneMode = (code: string): PlaneMode | null => {
   return null;
 };
 
+const computeCuttingMode = (
+  arcDir: "cw" | "ccw",
+  spindleDir: "cw" | "ccw" | null,
+): CuttingMode => {
+  if (spindleDir === null) return "unknown";
+  return arcDir === spindleDir ? "climb" : "conventional";
+};
+
 const buildParsedLines = (source: string): ParsedLine[] =>
   source.split(/\r?\n/).map((line, index) => {
     const { sanitized, comment } = cleanLine(line);
@@ -117,9 +143,11 @@ export const parseGCode = (
 ): ParsedProgram => {
   const diagnostics: Diagnostic[] = [];
   const lines = buildParsedLines(source);
-  const moves: SimulationMove[] = [];
+  const moves: ParsedMove[] = [];
   const state = emptyState();
   let activeMotion: string | null = null;
+  let pendingToolNumber: number | undefined;
+  let spindleDirection: "cw" | "ccw" | null = null;
 
   // Future extension point:
   // here we can inject machine-specific modal groups, canned cycles,
@@ -132,6 +160,8 @@ export const parseGCode = (
     const axisValues: Partial<Vector3> = {};
     let centerOffsetI: number | undefined;
     let centerOffsetJ: number | undefined;
+    let lineHasT = false;
+    let lineHasM6 = false;
 
     for (const word of line.words) {
       if (word.letter === "G" || word.letter === "M") {
@@ -170,9 +200,49 @@ export const parseGCode = (
 
         if (normalized === "M3" || normalized === "M03") {
           state.spindleOn = true;
+          spindleDirection = "cw";
+        }
+        if (normalized === "M4" || normalized === "M04") {
+          state.spindleOn = true;
+          spindleDirection = "ccw";
         }
         if (normalized === "M5" || normalized === "M05") {
           state.spindleOn = false;
+          spindleDirection = null;
+        }
+
+        if (normalized === "M6" || normalized === "M06") {
+          lineHasM6 = true;
+          if (pendingToolNumber !== undefined) {
+            const tc: ToolChangeMove = {
+              type: "tool-change",
+              id: `tc-${line.lineNumber}`,
+              lineNumber: line.lineNumber,
+              toolNumber: pendingToolNumber,
+            };
+            moves.push(tc);
+            state.toolNumber = pendingToolNumber;
+            pendingToolNumber = undefined;
+          } else {
+            diagnostics.push({
+              id: `${line.lineNumber}-MISSING_TOOL_NUMBER`,
+              lineNumber: line.lineNumber,
+              severity: "warning",
+              code: "MISSING_TOOL_NUMBER",
+              message: "M6 ohne vorherige T-Nummer. Werkzeugwechsel kann nicht ausgeführt werden.",
+            });
+          }
+        }
+
+        const wcsNum = Number(normalized.slice(1));
+        if (normalized.startsWith("G") && wcsNum >= 54 && wcsNum <= 59) {
+          const wcs: WcsMove = {
+            type: "wcs",
+            id: `wcs-${line.lineNumber}`,
+            lineNumber: line.lineNumber,
+            wcsNumber: wcsNum,
+          };
+          moves.push(wcs);
         }
       }
 
@@ -185,7 +255,8 @@ export const parseGCode = (
       }
 
       if (word.letter === "T" && typeof word.value === "number") {
-        state.toolNumber = word.value;
+        lineHasT = true;
+        pendingToolNumber = word.value;
       }
 
       if (word.letter === "X" && typeof word.value === "number") {
@@ -203,6 +274,16 @@ export const parseGCode = (
       if (word.letter === "J" && typeof word.value === "number") {
         centerOffsetJ = word.value;
       }
+    }
+
+    if (lineHasT && !lineHasM6) {
+      diagnostics.push({
+        id: `${line.lineNumber}-TOOL_WITHOUT_M6`,
+        lineNumber: line.lineNumber,
+        severity: "warning",
+        code: "TOOL_WITHOUT_M6",
+        message: "T-Wort ohne M6 auf derselben Zeile. Werkzeugwechsel wird nicht ausgeführt.",
+      });
     }
 
     const hasMotion =
@@ -252,6 +333,9 @@ export const parseGCode = (
       feedRate: state.feedRate ?? DEFAULT_TOOL.feedRate,
       spindleOn: state.spindleOn,
       isCutting: moveType !== "rapid",
+      cuttingMode: moveType === "arc"
+        ? computeCuttingMode(activeMotion === "G2" || activeMotion === "G02" ? "cw" : "ccw", spindleDirection)
+        : "unknown",
       warnings: [],
       pathPoints,
       arc: canInterpolateArc && centerOffsetI !== undefined && centerOffsetJ !== undefined
@@ -271,7 +355,7 @@ export const parseGCode = (
     state.position = nextPosition;
   }
 
-  const validationDiagnostics = validateProgram(lines, moves, state, workpiece, tool);
+  const validationDiagnostics = validateProgram(lines, moves.filter(isSimulationMove), state, workpiece, tool);
 
   return {
     lines,

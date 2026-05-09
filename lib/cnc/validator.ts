@@ -1,6 +1,7 @@
 import { DEFAULT_TOOL, DEFAULT_WORKPIECE } from "@/lib/cnc/defaults";
 import type {
   Diagnostic,
+  DiagnosticCode,
   MachineState,
   ParsedLine,
   SimulationMove,
@@ -12,7 +13,7 @@ import { isFiniteNumber } from "@/lib/cnc/utils";
 const makeDiagnostic = (
   lineNumber: number,
   severity: Diagnostic["severity"],
-  code: string,
+  code: DiagnosticCode,
   message: string,
 ): Diagnostic => ({
   id: `${lineNumber}-${code}-${message}`,
@@ -228,6 +229,38 @@ export const validateProgram = (
           "warning",
           "FLUTE_LIMIT",
           "Schnitttiefe ist größer als die definierte Schneidenlänge.",
+        ),
+      );
+    }
+  }
+
+  for (const move of moves) {
+    if (move.type !== "arc") continue;
+    if (move.cuttingMode === "climb") {
+      diagnostics.push(
+        makeDiagnostic(
+          move.lineNumber,
+          "info",
+          "CLIMB_MILLING",
+          "Gleichlauffräsen erkannt: Bogen läuft in Spindeldrehrichtung.",
+        ),
+      );
+    } else if (move.cuttingMode === "conventional") {
+      diagnostics.push(
+        makeDiagnostic(
+          move.lineNumber,
+          "info",
+          "CONVENTIONAL_MILLING",
+          "Gegenlauffräsen erkannt: Bogen läuft gegen die Spindeldrehrichtung.",
+        ),
+      );
+    } else {
+      diagnostics.push(
+        makeDiagnostic(
+          move.lineNumber,
+          "warning",
+          "CONVENTIONAL_MILLING",
+          "Bogenbewegung ohne bekannte Spindeldrehrichtung — Einstellungsart unbekannt.",
         ),
       );
     }
