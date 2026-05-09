@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { memo, useEffect, useMemo, useRef, useState } from "react";
 import { Canvas, useFrame } from "@react-three/fiber";
@@ -45,7 +45,7 @@ function getMoveColor(move: SimulationMove): string {
   if (move.type === "arc") {
     if (move.cuttingMode === "climb") return "#4ade80";
     if (move.cuttingMode === "conventional") return "#fb923c";
-    return "#94a3b8";
+    if (move.cuttingMode === "unknown") return "#94a3b8";
   }
   return "#49d6ff";
 }
@@ -93,7 +93,7 @@ const ToolpathLines = memo(function ToolpathLines({
 
         return (
           <Line
-            key={`cut-${move.id}`}
+            key={`${move.type}-${move.type === "arc" ? move.cuttingMode : "cut"}-${move.id}`}
             points={points}
             color={getMoveColor(move)}
             lineWidth={1.9}
