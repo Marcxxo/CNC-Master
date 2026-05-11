@@ -1,4 +1,4 @@
-import type { ParsedMove } from "@/lib/cnc/types";
+import type { ParsedMove, ToolLibrary } from "@/lib/cnc/types";
 import { isSimulationMove } from "@/lib/cnc/types";
 
 export interface VoxelGrid {
@@ -71,16 +71,29 @@ export function applyToolAtPosition(
 export function applyMovesToGrid(
   grid: VoxelGrid,
   moves: ParsedMove[],
-  toolRadius: number,
+  toolLibrary: ToolLibrary,
   upToMoveIndex: number,
 ): void {
   const { resolution, workpieceHeight } = grid;
   const step = resolution / 2;
   const limit = Math.min(upToMoveIndex, moves.length - 1);
 
+  let toolRadius = (toolLibrary.tools[0]?.diameter ?? 6) / 2;
+
   for (let i = 0; i <= limit; i++) {
     const move = moves[i];
-    if (!isSimulationMove(move) || move.type === "rapid") {
+
+    if (!isSimulationMove(move)) {
+      if (move.type === "tool-change") {
+        const activeTool = toolLibrary.tools.find((t) => t.id === move.toolNumber);
+        if (activeTool) {
+          toolRadius = activeTool.diameter / 2;
+        }
+      }
+      continue;
+    }
+
+    if (move.type === "rapid") {
       continue;
     }
 

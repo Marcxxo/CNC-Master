@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { SimulationMove } from "@/lib/cnc/types";
+import type { SimulationMove, ToolLibrary } from "@/lib/cnc/types";
 import {
   applyMovesToGrid,
   applyToolAtPosition,
@@ -10,6 +10,27 @@ import {
 
 const WORKPIECE = { width: 20, depth: 20, height: 10 };
 const RESOLUTION = 1.0;
+
+function makeToolLibrary(diameter: number): ToolLibrary {
+  return {
+    tools: [
+      {
+        id: 1,
+        label: `D${diameter}`,
+        category: "schaftfraeser",
+        diameter,
+        fluteCount: 2,
+        length: 50,
+        cuttingLength: 20,
+        material: "vhm",
+        spindleSpeed: 12000,
+        feedRate: 1000,
+        notes: "",
+      },
+    ],
+    activeTool: 1,
+  };
+}
 
 function makeGrid() {
   return createVoxelGrid(WORKPIECE, RESOLUTION);
@@ -101,7 +122,6 @@ describe("resetVoxelGrid", () => {
 describe("applyMovesToGrid", () => {
   it("applies only the first move when upToMoveIndex=0", () => {
     const grid = makeGrid();
-    const toolRadius = 1.5;
 
     // Move 0 cuts near (5, 5); move 1 cuts near (15, 15) — no overlap
     const moves: SimulationMove[] = [
@@ -115,7 +135,7 @@ describe("applyMovesToGrid", () => {
       ]),
     ];
 
-    applyMovesToGrid(grid, moves, toolRadius, 0);
+    applyMovesToGrid(grid, moves, makeToolLibrary(3), 0);
 
     // Cell in move-0 area should be cut (cz = height + gcodeZ = 10 + (-2) = 8)
     const cutIdx = getCellIndex(grid, 5, 4);
@@ -135,7 +155,7 @@ describe("applyMovesToGrid", () => {
       ]),
     ];
 
-    applyMovesToGrid(grid, moves, 2, -1);
+    applyMovesToGrid(grid, moves, makeToolLibrary(4), -1);
 
     for (let i = 0; i < grid.cells.length; i++) {
       expect(grid.cells[i]).toBe(WORKPIECE.height);
@@ -144,7 +164,7 @@ describe("applyMovesToGrid", () => {
 
   it("leaves grid untouched when moves array is empty", () => {
     const grid = makeGrid();
-    applyMovesToGrid(grid, [], 2, 0);
+    applyMovesToGrid(grid, [], makeToolLibrary(4), 0);
 
     for (let i = 0; i < grid.cells.length; i++) {
       expect(grid.cells[i]).toBe(WORKPIECE.height);
@@ -161,7 +181,7 @@ describe("applyMovesToGrid", () => {
       "rapid",
     );
 
-    applyMovesToGrid(grid, [rapid], 2, 0);
+    applyMovesToGrid(grid, [rapid], makeToolLibrary(4), 0);
 
     for (let i = 0; i < grid.cells.length; i++) {
       expect(grid.cells[i]).toBe(WORKPIECE.height);

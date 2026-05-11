@@ -274,7 +274,7 @@ export const useSimulationStore = create<SimulationStore>((set, get) => {
         return;
       }
       resetVoxelGrid(grid);
-      applyMovesToGrid(grid, get().parsedProgram.moves, getActiveTool().diameter / 2, moveIndex);
+      applyMovesToGrid(grid, get().parsedProgram.moves, get().toolLibrary, moveIndex);
       set({ voxelGrid: { ...grid } });
     },
   };
