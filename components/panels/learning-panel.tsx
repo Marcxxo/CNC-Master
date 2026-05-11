@@ -34,6 +34,7 @@ export function LearningPanel() {
 
   return (
     <PanelShell title="Lernhilfe" subtitle="Kurzreferenz und einfache Zeilenerklärung">
+      <div className="max-h-[560px] overflow-y-auto pr-0.5">
       <div className="rounded-3xl border border-cyan-400/15 bg-slate-950/50 p-4">
         <p className="text-xs uppercase tracking-[0.22em] text-slate-500">Aktive Zeile</p>
         <p className="mt-2 font-mono text-sm text-cyan-100">
@@ -89,6 +90,7 @@ export function LearningPanel() {
             </div>
           );
         })}
+      </div>
       </div>
     </PanelShell>
   );

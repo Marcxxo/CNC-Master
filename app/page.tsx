@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { DiagnosticsPanel } from "@/components/panels/diagnostics-panel";
 import { LearningPanel } from "@/components/panels/learning-panel";
@@ -49,18 +49,24 @@ export default function HomePage() {
           </div>
         </header>
 
-        <section className="grid gap-6 xl:grid-cols-[360px_minmax(0,1fr)_480px]">
-          <div className="space-y-6">
+        <section className="grid gap-6 xl:grid-cols-[320px_minmax(0,1fr)_minmax(0,2fr)]">
+          <div>
             <SetupPanel />
-            <LearningPanel />
           </div>
 
           <div className="min-h-[720px]">
             <Viewer3D />
           </div>
 
-          <div className="space-y-6">
-            <GCodeEditorPanel />
+          <div className="flex flex-col gap-4">
+            <div className="flex flex-col gap-4 md:flex-row md:items-start">
+              <div className="min-w-0 md:flex-[3]">
+                <GCodeEditorPanel />
+              </div>
+              <div className="min-w-0 md:flex-[2]">
+                <LearningPanel />
+              </div>
+            </div>
             <DiagnosticsPanel />
           </div>
         </section>
@@ -68,4 +74,3 @@ export default function HomePage() {
     </main>
   );
 }
-

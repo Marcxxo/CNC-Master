@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import dynamic from "next/dynamic";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -91,7 +91,11 @@ export function GCodeEditorPanel() {
             onChange={(event) => setSelectedExampleId(event.target.value)}
           >
             {availableExamples.map((example) => (
-              <option key={example.id} value={example.id}>
+              <option
+                key={example.id}
+                value={example.id}
+                style={example.id === "empty" ? { fontStyle: "italic", color: "#94a3b8" } : undefined}
+              >
                 {example.title}
               </option>
             ))}
@@ -107,7 +111,7 @@ export function GCodeEditorPanel() {
     >
       <div className="mb-4 rounded-2xl border border-slate-800 bg-slate-950/45 p-4">
         <p className="text-xs uppercase tracking-[0.18em] text-slate-500">Ausgewähltes Beispiel</p>
-        <p className="mt-2 text-sm font-semibold text-cyan-100">
+        <p className={`mt-2 text-sm font-semibold ${selectedExample?.id === "empty" ? "italic text-slate-400" : "text-cyan-100"}`}>
           {selectedExample?.title ?? "Eigener G-Code"}
         </p>
         <p className="mt-1 text-sm text-slate-300">

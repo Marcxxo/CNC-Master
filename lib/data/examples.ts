@@ -1,4 +1,4 @@
-﻿import type { ToolDefinition, WorkpieceDefinition } from "@/lib/cnc/types";
+import type { ToolDefinition, WorkpieceDefinition } from "@/lib/cnc/types";
 
 export interface BuiltInExample {
   id: string;
@@ -10,6 +10,20 @@ export interface BuiltInExample {
 }
 
 export const BUILTIN_EXAMPLES: BuiltInExample[] = [
+  {
+    id: "empty",
+    title: "<Leer>",
+    description: "Leerer Editor – eigenen G-Code eingeben",
+    gcode: "",
+    workpiece: {
+      width: 100,
+      depth: 100,
+      height: 20,
+      material: "aluminum",
+      originMode: "top-front-left",
+      safeZ: 5,
+    },
+  },
   {
     id: "linear-slot",
     title: "Lineare Bearbeitung mit Nut",
@@ -119,7 +133,7 @@ M30`,
   },
 ];
 
-export const DEFAULT_EXAMPLE_ID = BUILTIN_EXAMPLES[0].id;
+export const DEFAULT_EXAMPLE_ID = "empty";
 
 export const getBuiltInExample = (id: string) =>
   BUILTIN_EXAMPLES.find((example) => example.id === id) ?? BUILTIN_EXAMPLES[0];
