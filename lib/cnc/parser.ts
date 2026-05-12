@@ -1,4 +1,3 @@
-import { DEFAULT_TOOL } from "@/lib/cnc/defaults";
 import { interpolateArcXY } from "@/lib/cnc/arcs";
 import type {
   CuttingMode,
@@ -330,7 +329,7 @@ export const parseGCode = (
       type: moveType,
       from: { ...state.position },
       to: nextPosition,
-      feedRate: state.feedRate ?? DEFAULT_TOOL.feedRate,
+      feedRate: state.feedRate,
       spindleOn: state.spindleOn,
       isCutting: moveType !== "rapid",
       cuttingMode: moveType === "arc"

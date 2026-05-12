@@ -267,6 +267,7 @@ export const useSimulationStore = create<SimulationStore>((set, get) => {
         isPlaying: false,
         selectedLineNumber: null,
       });
+      _rebuildVoxelGrid();
     },
     updateVoxelToFrame: (moveIndex) => {
       const grid = get().voxelGrid;

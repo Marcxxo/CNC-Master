@@ -146,18 +146,18 @@ export const validateProgram = (
       spindleSeen = true;
     }
 
-    if (move.type === "cut" && !feedSeen) {
+    if ((move.type === "cut" || move.type === "arc") && !feedSeen) {
       diagnostics.push(
         makeDiagnostic(
           move.lineNumber,
           "error",
           "FEED_REQUIRED",
-          "G1 ohne aktiven Vorschubwert erkannt.",
+          "Schnittbewegung ohne aktiven Vorschubwert erkannt.",
         ),
       );
     }
 
-    if (move.type === "cut" && !spindleSeen) {
+    if ((move.type === "cut" || move.type === "arc") && !spindleSeen) {
       diagnostics.push(
         makeDiagnostic(
           move.lineNumber,
@@ -228,7 +228,7 @@ export const validateProgram = (
           move.lineNumber,
           "warning",
           "FLUTE_LIMIT",
-          "Schnitttiefe ist größer als die definierte Schneidenlänge.",
+          "Schnitttiefe ist größer als die definierte Schneidelänge.",
         ),
       );
     }
@@ -252,15 +252,6 @@ export const validateProgram = (
           "info",
           "CONVENTIONAL_MILLING",
           "Gegenlauffräsen erkannt: Bogen läuft gegen die Spindeldrehrichtung.",
-        ),
-      );
-    } else {
-      diagnostics.push(
-        makeDiagnostic(
-          move.lineNumber,
-          "warning",
-          "CONVENTIONAL_MILLING",
-          "Bogenbewegung ohne bekannte Spindeldrehrichtung — Einstellungsart unbekannt.",
         ),
       );
     }
